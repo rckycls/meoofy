@@ -9,6 +9,8 @@ export type Session = {
   client: PawpinClient
   signedIn: boolean
   userId: string | null
+  /** The signed-in person's email, or `null` when signed out or the session carries none. */
+  email: string | null
 }
 
 const SessionContext = createContext<Session | null>(null)
@@ -36,7 +38,7 @@ function createClient(): PawpinClient {
   })
 }
 
-type AuthState = { ready: false } | { ready: true; userId: string | null }
+type AuthState = { ready: false } | { ready: true; userId: string | null; email: string | null }
 
 /**
  * Owns the app's one Supabase client and follows its auth state. Children
@@ -60,7 +62,7 @@ export function SessionProvider({
     // sign-in, sign-out and refresh. Only state is set here: awaiting other
     // client calls inside this callback can deadlock supabase-js.
     const { data } = client.auth.onAuthStateChange((_event, session) => {
-      setAuth({ ready: true, userId: session?.user.id ?? null })
+      setAuth({ ready: true, userId: session?.user.id ?? null, email: session?.user.email ?? null })
     })
     return () => data.subscription.unsubscribe()
   }, [client])
@@ -77,9 +79,10 @@ export function SessionProvider({
   }, [client])
 
   const userId = auth.ready ? auth.userId : null
+  const email = auth.ready ? auth.email : null
   const value = useMemo<Session>(
-    () => ({ client, signedIn: userId !== null, userId }),
-    [client, userId],
+    () => ({ client, signedIn: userId !== null, userId, email }),
+    [client, userId, email],
   )
 
   if (!auth.ready) return null

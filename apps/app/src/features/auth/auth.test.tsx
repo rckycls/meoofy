@@ -101,6 +101,7 @@ function routes(client: ReturnType<typeof fakeClient>['client']) {
     '(onboarding)/all-set': AllSet,
     '(tabs)/home': stub('Home screen'),
     '(tabs)/find': stub('Find screen'),
+    '(tabs)/account': stub('Account screen'),
     'pets/new': stub('Add pet screen'),
   }
 }
@@ -887,6 +888,87 @@ describe('your name', () => {
 
     expect(await screen.findByRole('header', { name: authCopy.signIn.title })).toBeOnTheScreen()
     expect(router.getPathname()).toBe('/sign-in')
+  })
+})
+
+describe('your name, edit mode', () => {
+  async function openEdit() {
+    const router = await render('/your-name?mode=edit', 'u1')
+    await screen.findByRole('header', { name: authCopy.yourName.edit.title })
+    return router
+  }
+
+  const nameField = () => screen.getByLabelText(authCopy.yourName.label)
+
+  it('asks for a new name instead of the first one, prefilled with the current name', async () => {
+    await openEdit()
+
+    expect(screen.getByText(authCopy.yourName.edit.body)).toBeOnTheScreen()
+    expect(screen.queryByText(authCopy.yourName.title)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeOnTheScreen()
+    await waitFor(() => expect(nameField().props.value).toBe('Alex'))
+  })
+
+  it('saves the new name and returns to Account, not to the last onboarding screen', async () => {
+    const router = await openEdit()
+    await waitFor(() => expect(nameField().props.value).toBe('Alex'))
+    await fireEvent.changeText(nameField(), 'Al')
+
+    await press('Save')
+
+    await waitFor(() => expect(mockUpdateDisplayName).toHaveBeenCalledWith(fake.client, 'Al'))
+    // Opened directly, so there is nothing to go back to: it replaces itself with Account.
+    expect(await screen.findByText('Account screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/account')
+    expect(screen.queryByText(/all set/)).toBeNull()
+  })
+
+  it('shows what went wrong and stays when saving fails', async () => {
+    mockUpdateDisplayName.mockRejectedValue(new AppError('NETWORK'))
+    const router = await openEdit()
+    await waitFor(() => expect(nameField().props.value).toBe('Alex'))
+
+    await press('Save')
+
+    expect(await screen.findByText(authCopy.errors.network)).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/your-name')
+  })
+
+  it('leaves without saving on Cancel', async () => {
+    const router = await openEdit()
+    await waitFor(() => expect(nameField().props.value).toBe('Alex'))
+    await fireEvent.changeText(nameField(), 'Al')
+
+    await press('Cancel')
+
+    expect(await screen.findByText('Account screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/account')
+    expect(mockUpdateDisplayName).not.toHaveBeenCalled()
+  })
+
+  it('does not overwrite what was typed when the current name arrives late', async () => {
+    let arrive: (profile: Profile) => void = () => undefined
+    mockGetProfile.mockImplementation(() => new Promise<Profile>((resolve) => (arrive = resolve)))
+    await openEdit()
+    expect(nameField().props.value).toBe('')
+    await fireEvent.changeText(nameField(), 'Sam')
+
+    await act(async () => arrive(alex))
+
+    expect(nameField().props.value).toBe('Sam')
+  })
+
+  it('keeps the first-run step as it was: no Cancel, and it opens the last onboarding screen', async () => {
+    serverProfile = { ...alex, displayName: '' }
+    const router = await render('/your-name', 'u1')
+    await screen.findByRole('header', { name: authCopy.yourName.title })
+
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
+    expect(nameField().props.value).toBe('')
+    await fireEvent.changeText(nameField(), 'Alex')
+    await press('Continue')
+
+    await waitFor(() => expect(router.getPathname()).toBe('/all-set'))
   })
 })
 

@@ -46,9 +46,11 @@ export default function TabsLayout() {
           screenOptions={{ headerShown: false }}
           tabBar={desktop ? noTabBar : () => <TabBar active={active} onSelect={select} />}
         >
-          {/* Expo Router shows only declared screens. Home and Account join in Task 19. */}
+          {/* Expo Router shows only declared screens, in this order. */}
+          <Tabs.Screen name="home" />
           <Tabs.Screen name="find" />
           <Tabs.Screen name="alerts" />
+          <Tabs.Screen name="account" />
         </Tabs>
       </SafeAreaInsetsContext.Provider>
     </View>

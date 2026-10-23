@@ -13,8 +13,10 @@ function routes(client = fakeClient({ userId: 'u1' }).client) {
   return {
     _layout: testRootLayout(client),
     '(tabs)/_layout': TabsLayout,
+    '(tabs)/home': () => <Text>Home screen</Text>,
     '(tabs)/find': FindTab,
     '(tabs)/alerts': AlertsTab,
+    '(tabs)/account': () => <Text>Account screen</Text>,
     '(auth)/sign-in': () => <Text>Sign-in screen</Text>,
   }
 }
@@ -65,6 +67,26 @@ describe('tab layout', () => {
     expect(router.getPathname()).toBe('/alerts')
     expect(await screen.findByText('Alerts arrive in the next pilot build')).toBeOnTheScreen()
     expect(screen.getByRole('tab', { name: 'Alerts' }).props.accessibilityState).toMatchObject({
+      selected: true,
+    })
+  })
+
+  it('opens Home and Account from the tab bar, each as the selected tab', async () => {
+    setWindowWidth(390, 844)
+    const router = await renderRouter(routes(), { initialUrl: '/find' })
+    await screen.findByText(FIND_COPY)
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Home' }))
+    expect(await screen.findByText('Home screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/home')
+    expect(screen.getByRole('tab', { name: 'Home' }).props.accessibilityState).toMatchObject({
+      selected: true,
+    })
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'Account' }))
+    expect(await screen.findByText('Account screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/account')
+    expect(screen.getByRole('tab', { name: 'Account' }).props.accessibilityState).toMatchObject({
       selected: true,
     })
   })

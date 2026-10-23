@@ -68,8 +68,13 @@ describe('session storage', () => {
 })
 
 function SessionProbe() {
-  const { signedIn, userId } = useSession()
-  return <Text>{signedIn ? `signed in as ${userId}` : 'signed out'}</Text>
+  const { signedIn, userId, email } = useSession()
+  return (
+    <>
+      <Text>{signedIn ? `signed in as ${userId}` : 'signed out'}</Text>
+      <Text>{`email: ${email ?? 'none'}`}</Text>
+    </>
+  )
 }
 
 describe('SessionProvider', () => {
@@ -88,6 +93,26 @@ describe('SessionProvider', () => {
       await fake.client.auth.signOut({ scope: 'local' })
     })
     expect(screen.getByText('signed out')).toBeOnTheScreen()
+  })
+
+  it('carries the signed-in email, and none when the session has none or ends', async () => {
+    const fake = fakeClient({ userId: null })
+    await render(
+      <TestProviders client={fake.client}>
+        <SessionProbe />
+      </TestProviders>,
+    )
+
+    expect(await screen.findByText('email: none')).toBeOnTheScreen()
+    await act(async () => fake.signIn('u2', 'alex@example.com'))
+    expect(screen.getByText('email: alex@example.com')).toBeOnTheScreen()
+    await act(async () => {
+      await fake.client.auth.signOut({ scope: 'local' })
+    })
+    expect(screen.getByText('email: none')).toBeOnTheScreen()
+    // A session without an email (Apple can hide it) reads as none, not as "undefined".
+    await act(async () => fake.signIn('u3'))
+    expect(screen.getByText('email: none')).toBeOnTheScreen()
   })
 
   it('throws a clear error outside the provider', async () => {

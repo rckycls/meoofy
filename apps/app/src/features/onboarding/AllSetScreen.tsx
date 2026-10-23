@@ -1,10 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
-import { useQuery } from '@tanstack/react-query'
-import { getProfile } from '@pawpin/api'
 import { Button, Sticker, colors, radii, space, textStyle, type } from '@pawpin/ui'
 
-import { useSession } from '../../state/SessionProvider'
+import { useProfile } from '../../data/useProfile'
 import { allSetTitle, onboardingCopy } from './copy'
 import { CelebrationHero } from './heroes'
 import { Icon } from './icons'
@@ -16,16 +14,11 @@ const AVATAR = 44
 /** O03: the person is signed in and named. Add a first pet, or look around. */
 export function AllSetScreen() {
   const copy = onboardingCopy.allSet
-  const { client, signedIn } = useSession()
   // The first screen after sign-in: the path chosen in O01 is recorded here.
   const chosenPath = useRecordOnboardingPath()
   // Shares the entry gate's ['profile'] query. Without a name the greeting
   // simply leaves it out.
-  const profile = useQuery({
-    queryKey: ['profile'],
-    queryFn: () => getProfile(client),
-    enabled: signedIn,
-  })
+  const profile = useProfile()
 
   const addPet = () => router.navigate('/pets/new')
   const explore = () => router.replace(chosenPath === 'finder' ? '/(tabs)/find' : '/(tabs)/home')

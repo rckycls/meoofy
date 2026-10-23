@@ -36,6 +36,13 @@ export const authCopy = {
     action: 'Continue',
     required: 'Enter your name',
     tooLong: `Use ${LIMITS.displayNameMax} characters or fewer`,
+    // The same step opened from Account (`?mode=edit`) to change the name.
+    edit: {
+      title: 'Change your name',
+      body: 'This is how we greet you in PawPin.',
+      action: 'Save',
+      cancel: 'Cancel',
+    },
   },
   errors: {
     inviteOnly: 'This pilot is invite-only',

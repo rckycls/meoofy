@@ -1,6 +1,6 @@
 import type { PawpinClient } from '@pawpin/api'
 
-type FakeSession = { user: { id: string } } | null
+type FakeSession = { user: { id: string; email?: string } } | null
 type AuthListener = (event: string, session: FakeSession) => void
 
 /**
@@ -8,8 +8,11 @@ type AuthListener = (event: string, session: FakeSession) => void
  * auth events, local sign-out and the auto-refresh switches. Data calls are
  * mocked at the `@pawpin/api` function level in the tests that need them.
  */
-export function fakeClient({ userId = null }: { userId?: string | null } = {}) {
-  let session: FakeSession = userId === null ? null : { user: { id: userId } }
+export function fakeClient({
+  userId = null,
+  email,
+}: { userId?: string | null; email?: string } = {}) {
+  let session: FakeSession = userId === null ? null : { user: { id: userId, email } }
   const listeners = new Set<AuthListener>()
   const emit = (event: string) => listeners.forEach((listener) => listener(event, session))
 
@@ -33,8 +36,8 @@ export function fakeClient({ userId = null }: { userId?: string | null } = {}) {
     client: { auth } as unknown as PawpinClient,
     auth,
     /** Simulates a sign-in finishing (for example from the email-code screen). */
-    signIn(id: string) {
-      session = { user: { id } }
+    signIn(id: string, signInEmail?: string) {
+      session = { user: { id, email: signInEmail } }
       emit('SIGNED_IN')
     },
   }

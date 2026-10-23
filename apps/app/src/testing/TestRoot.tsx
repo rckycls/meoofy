@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Slot } from 'expo-router'
+import { Slot, Stack } from 'expo-router'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import type { PawpinClient } from '@pawpin/api'
 
@@ -28,6 +28,20 @@ export function testRootLayout(client: PawpinClient) {
     return (
       <TestProviders client={client}>
         <Slot />
+      </TestProviders>
+    )
+  }
+}
+
+/**
+ * Like `testRootLayout`, with the app's root `Stack` instead of a `Slot`: a screen pushed over
+ * another keeps the one below it, so going back returns to it as it was (the tab that was open).
+ */
+export function testRootStackLayout(client: PawpinClient) {
+  return function TestRootStackLayout() {
+    return (
+      <TestProviders client={client}>
+        <Stack screenOptions={{ headerShown: false }} />
       </TestProviders>
     )
   }
