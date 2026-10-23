@@ -4,6 +4,7 @@ import { Redirect, Tabs, router, usePathname } from 'expo-router'
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TabBar, WebNav, colors, type NavKey } from '@pawpin/ui'
 
+import { useRecordOnboardingPath } from '../../src/features/onboarding/useRecordOnboardingPath'
 import { useLayoutMode } from '../../src/layout/layoutMode'
 import { navKeyForPath, tabHref } from '../../src/navigation/tabs'
 import { useSession } from '../../src/state/SessionProvider'
@@ -16,6 +17,8 @@ const noTabBar = () => null
 
 export default function TabsLayout() {
   const { signedIn } = useSession()
+  // A first sign-in that lands in the tabs (not on O03) still records the O01 choice.
+  useRecordOnboardingPath()
   const desktop = useLayoutMode() === 'desktop'
   const active = navKeyForPath(usePathname())
   const insets = useSafeAreaInsets()
