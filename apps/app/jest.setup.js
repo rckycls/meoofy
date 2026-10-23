@@ -13,6 +13,15 @@ jest.mock('@react-native-community/netinfo', () =>
   require('@react-native-community/netinfo/jest/netinfo-mock.js'),
 )
 
+// The Sentry SDK talks to native code and the network, so tests never load it: they get these
+// stand-ins at the boundary and assert on the calls (see src/observability).
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  captureException: jest.fn(),
+  getClient: jest.fn(),
+  setUser: jest.fn(),
+}))
+
 // TanStack Query schedules garbage-collection timers (a week, for the
 // persisted cache) that would keep Jest alive after the last test. Unref'd
 // timers still fire but no longer hold the process open.

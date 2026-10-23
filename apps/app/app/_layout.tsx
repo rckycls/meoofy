@@ -10,13 +10,20 @@ import * as SplashScreen from 'expo-splash-screen'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { colors } from '@pawpin/ui'
 
+import { env } from '../src/env'
+import { initSentry } from '../src/observability/sentry'
 import { QueryProvider } from '../src/state/QueryProvider'
 import { SessionProvider } from '../src/state/SessionProvider'
 
 export {
-  // Expo Router's error screen for anything thrown while rendering a route.
+  // The error screen for anything thrown while rendering a route: friendly words, and the error
+  // goes to Sentry (scrubbed) when Sentry is on.
   ErrorBoundary,
-} from 'expo-router'
+} from '../src/observability/ErrorBoundary'
+
+// Error reporting is off unless a DSN is set. It starts here, at module load, so it is running
+// before anything renders.
+if (env.sentryDsn) initSentry(env.sentryDsn)
 
 // Keep the splash screen up until the fonts and the stored session are loaded.
 void SplashScreen.preventAutoHideAsync()

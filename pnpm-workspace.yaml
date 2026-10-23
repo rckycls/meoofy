@@ -2,10 +2,12 @@ packages:
   - apps/*
   - packages/*
 
-# Install scripts stay off: both packages ship prebuilt binaries as optional
-# platform packages, so their postinstall steps are not needed.
+# Install scripts stay off: these packages ship prebuilt binaries as optional
+# platform packages (@sentry/cli: @sentry/cli-darwin and friends), so their
+# postinstall steps are not needed.
 allowBuilds:
   '@parcel/watcher': false
+  '@sentry/cli': false
   unrs-resolver: false
 
 # pnpm 11 reads pnpm-specific settings from this file, not .npmrc.
