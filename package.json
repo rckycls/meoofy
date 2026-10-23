@@ -7,13 +7,15 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && tsc -p tools",
     "lint": "eslint .",
     "test": "pnpm -r test",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+    "verify": "pnpm typecheck && pnpm lint && pnpm test",
+    "gen:tokens": "node tools/tokens/build-tokens.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
     "eslint": "^10.13.0",
     "prettier": "^3.9.10",
     "typescript": "6.0.3",

@@ -2,6 +2,12 @@ packages:
   - apps/*
   - packages/*
 
+# Install scripts stay off: both packages ship prebuilt binaries as optional
+# platform packages, so their postinstall steps are not needed.
+allowBuilds:
+  '@parcel/watcher': false
+  unrs-resolver: false
+
 # pnpm 11 reads pnpm-specific settings from this file, not .npmrc.
 # .npmrc keeps the same value for tools that still look there.
 nodeLinker: hoisted
