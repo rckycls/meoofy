@@ -3,6 +3,7 @@
 import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { SignJWT } from 'jose'
+import jpeg from 'jpeg-js'
 import pg from 'pg'
 import { createPawpinClient, type PawpinClient } from '../src'
 import type { Database } from '../src/database.types'
@@ -40,11 +41,14 @@ export function clientWithAccessToken(token: string): PawpinClient {
 }
 
 /** Runs one statement as `postgres` over a direct connection (test helpers only). */
-export async function sql(text: string, values: unknown[] = []): Promise<pg.QueryResult> {
+export async function sql<Row extends pg.QueryResultRow = pg.QueryResultRow>(
+  text: string,
+  values: unknown[] = [],
+): Promise<pg.QueryResult<Row>> {
   const client = new pg.Client({ connectionString: DB_URL })
   await client.connect()
   try {
-    return await client.query(text, values)
+    return await client.query<Row>(text, values)
   } finally {
     await client.end()
   }
@@ -97,11 +101,37 @@ export async function newOwner(
   return { client, userId: data.user.id, email: normalized }
 }
 
-/** Deletes every user, allowlist entry and logged rejection for the emails this file touched. */
+/**
+ * Deletes every user, allowlist entry and logged rejection for the emails this file touched,
+ * plus the photo files those users uploaded and the queued deletions of their paths, so the next
+ * run (and pgTAP's cleanup tests, which count the whole queue) start from a clean bucket.
+ */
 export async function cleanup(): Promise<void> {
   const emails = [...touched]
   touched.clear()
   if (emails.length === 0) return
+  const { rows: users } = await sql<{ id: string }>(
+    'select id::text as id from auth.users where email = any($1)',
+    [emails],
+  )
+  const owners = users.map((u) => u.id)
+  if (owners.length > 0) {
+    // Files are under {owner_id}/. Storage refuses direct deletes from storage.objects, so they
+    // go through its API.
+    const { rows: files } = await sql<{ name: string }>(
+      `select name from storage.objects
+        where bucket_id = 'pet-photos' and split_part(name, '/', 1) = any($1)`,
+      [owners],
+    )
+    if (files.length > 0) {
+      const { error } = await admin.storage.from('pet-photos').remove(files.map((f) => f.name))
+      if (error) throw error
+    }
+    await sql(
+      `delete from registry.storage_deletions where split_part(storage_path, '/', 1) = any($1)`,
+      [owners],
+    )
+  }
   await sql('delete from auth.users where email = any($1)', [emails])
   await sql('delete from identity.pilot_allowlist where email = any($1)', [emails])
   await sql('delete from identity.signup_rejections where email = any($1)', [emails])
@@ -146,4 +176,56 @@ export async function signAccessToken(userId: string, expiresIn: number): Promis
     .setIssuedAt(Math.min(now, now + expiresIn) - 60)
     .setExpirationTime(now + expiresIn)
     .sign(new TextEncoder().encode(JWT_SECRET))
+}
+
+/** How many paths under `{ownerId}/{petId}/` wait in registry.storage_deletions. */
+export async function queuedPaths(ownerId: string, petId: string): Promise<number> {
+  const { rows } = await sql<{ n: number }>(
+    'select count(*)::int as n from registry.storage_deletions where storage_path like $1',
+    [`${ownerId}/${petId}/%`],
+  )
+  return rows[0]!.n
+}
+
+/** mulberry32: a small seeded PRNG, so test images are the same on every run and machine. */
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** Side of the flat squares the test image is made of, in pixels (one JPEG block). */
+const TILE = 8
+
+/**
+ * A deterministic, high-texture `width`×`height` JPEG (jpeg-js, quality 80): 8×8 squares of
+ * pseudo-random grey between 48 and 208, chosen by `seed`. The same arguments always give the
+ * same bytes. Its grayscale copy has a mean brightness near 128 and a blur score far above
+ * LIMITS.blurMin, so it passes `assessPhoto` whenever its short side is at least
+ * LIMITS.photoMinShortSide. Squares that line up with JPEG's 8×8 blocks keep a 1600×1200 image
+ * small (tens of kilobytes), well under LIMITS.photoMaxBytes.
+ */
+export function makeTestJpeg(width: number, height: number, seed = 1): ArrayBuffer {
+  const random = seededRandom(seed)
+  const columns = Math.ceil(width / TILE)
+  const rows = Math.ceil(height / TILE)
+  const shades = Array.from({ length: columns * rows }, () => 48 + Math.floor(random() * 161))
+  const rgba = new Uint8Array(width * height * 4)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const shade = shades[Math.floor(y / TILE) * columns + Math.floor(x / TILE)]!
+      const i = (y * width + x) * 4
+      rgba[i] = shade
+      rgba[i + 1] = shade
+      rgba[i + 2] = shade
+      rgba[i + 3] = 255
+    }
+  }
+  const { data } = jpeg.encode({ data: rgba, width, height }, 80)
+  return Uint8Array.from(data).buffer
 }

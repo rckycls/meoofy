@@ -17,6 +17,7 @@
   "devDependencies": {
     "@types/pg": "8.23.1",
     "jose": "6.2.12",
+    "jpeg-js": "0.4.4",
     "pg": "8.23.1",
     "vitest": "^5.0.5"
   }

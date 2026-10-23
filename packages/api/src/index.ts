@@ -17,3 +17,5 @@ export {
 } from './auth'
 export { completeOnboarding, getProfile, updateDisplayName } from './profile'
 export { getEntitlement } from './entitlements'
+export { createPet, deletePet, getPet, listPets, updatePet, type Pet } from './pets'
+export { deletePhoto, listPhotos, uploadPhoto, type PetPhoto, type PhotoUpload } from './photos'

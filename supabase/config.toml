@@ -207,9 +207,13 @@ anonymous_users = 30
 # Number of sessions that can be refreshed in a 5 minute interval per IP address.
 token_refresh = 150
 # Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
-sign_in_sign_ups = 30
+# Raised for the local stack only (Ruling 28): every `pnpm test:api` run signs in a fresh owner per
+# test from 127.0.0.1, so the default 30 trips RATE_LIMITED after a couple of runs. The hosted
+# project keeps Supabase's defaults; this file is not copied there.
+sign_in_sign_ups = 1000
 # Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
-token_verifications = 30
+# Raised locally for the same reason as sign_in_sign_ups.
+token_verifications = 1000
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.
 web3 = 30
 

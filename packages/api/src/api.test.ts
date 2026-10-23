@@ -3,17 +3,28 @@ import { AppError, type OnboardingPath } from '@pawpin/core'
 import { describe, expect, it, vi } from 'vitest'
 import {
   completeOnboarding,
+  createPet,
   deleteAccount,
+  deletePet,
+  deletePhoto,
   getEntitlement,
+  getPet,
   getProfile,
+  listPets,
+  listPhotos,
   sendEmailCode,
   signInWithAppleIdToken,
   signOut,
   updateDisplayName,
+  updatePet,
+  uploadPhoto,
   verifyEmailCode,
   type PawpinClient,
 } from './index'
 import { offline, respond, stubClient } from './testSupport'
+
+const PET = '6f1c1d4e-1111-4222-8333-944455556666'
+const PHOTO = '7a2b3c4d-5555-4666-8777-988899990000'
 
 const calls: [string, (c: PawpinClient) => Promise<unknown>][] = [
   ['sendEmailCode', (c) => sendEmailCode(c, 'a@pawpin.test')],
@@ -24,6 +35,30 @@ const calls: [string, (c: PawpinClient) => Promise<unknown>][] = [
   ['completeOnboarding', (c) => completeOnboarding(c, 'owner')],
   ['updateDisplayName', (c) => updateDisplayName(c, 'Alex')],
   ['getEntitlement', (c) => getEntitlement(c)],
+  ['listPets', (c) => listPets(c)],
+  ['getPet', (c) => getPet(c, PET)],
+  [
+    'createPet',
+    (c) => createPet(c, { id: PET, name: 'Rex', species: 'dog', breed: null, ageMonths: null }),
+  ],
+  ['updatePet', (c) => updatePet(c, PET, { name: 'Rex' })],
+  ['deletePet', (c) => deletePet(c, PET)],
+  ['listPhotos', (c) => listPhotos(c, PET)],
+  [
+    'uploadPhoto',
+    (c) =>
+      uploadPhoto(c, {
+        id: PHOTO,
+        petId: PET,
+        view: 'front',
+        jpeg: new ArrayBuffer(1024),
+        width: 1600,
+        height: 1200,
+        blurScore: 300,
+        brightness: 128,
+      }),
+  ],
+  ['deletePhoto', (c) => deletePhoto(c, PHOTO)],
 ]
 
 describe('network failures reject with a retryable NETWORK AppError', () => {
