@@ -279,9 +279,12 @@ max_frequency = "5s"
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
-# [auth.hook.before_user_created]
-# enabled = true
-# uri = "pg-functions://postgres/auth/before-user-created-hook"
+# PawPin: refuses sign-ups whose email is not in identity.pilot_allowlist and logs them in
+# identity.signup_rejections (migration 20261023000007_auth_hook.sql). Changing this block needs
+# `supabase stop && supabase start`; a db reset alone does not reconfigure the auth container.
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/identity/before_user_created"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]

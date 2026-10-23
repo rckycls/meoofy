@@ -322,7 +322,7 @@ select throws_ok(
   '23505', null, 'a second ready photo for a required view is rejected');
 
 select throws_ok(
-  $$ insert into identity.pilot_allowlist (email) values ('Owner@Pawpin.test'), ('owner@pawpin.test') $$,
+  $$ insert into identity.pilot_allowlist (email) values ('Dup@Pawpin.test'), ('dup@pawpin.test') $$,
   '23505', null, 'allowlist emails are unique regardless of case');
 
 select throws_ok(
