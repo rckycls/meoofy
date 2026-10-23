@@ -92,6 +92,8 @@ export function ViewTile({
         accessibilityRole="radio"
         accessibilityLabel={copy.tileLabel(view, state, keptPrevious)}
         accessibilityState={{ selected, checked: selected }}
+        // react-native-web ignores `accessibilityState`; this is what puts the state in the page.
+        aria-checked={selected}
         onPress={onSelect}
         style={styles.header}
       >

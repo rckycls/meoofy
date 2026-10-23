@@ -57,6 +57,8 @@ function ChoiceCard({ icon, title, body, selected, onSelect }: ChoiceCardProps) 
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected, checked: selected }}
+      // react-native-web ignores `accessibilityState`; this is what puts the state in the page.
+      aria-checked={selected}
       onPress={onSelect}
       style={styles.choice}
     >

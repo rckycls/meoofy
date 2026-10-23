@@ -242,6 +242,8 @@ function SpeciesPicker({
               key={species}
               accessibilityRole="radio"
               accessibilityState={{ selected, checked: selected }}
+              // react-native-web ignores `accessibilityState`; this is what puts the state in the page.
+              aria-checked={selected}
               onPress={() => onChange(species)}
               style={[styles.option, selected ? styles.optionSelected : styles.optionIdle]}
             >
