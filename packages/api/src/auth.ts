@@ -1,4 +1,5 @@
 import { AppError } from '@pawpin/core'
+import { isAuthApiError, isAuthSessionMissingError } from '@supabase/supabase-js'
 import type { PawpinClient } from './client'
 import { toAppError } from './errors'
 
@@ -44,6 +45,39 @@ export async function signInWithAppleIdToken(
     if (error) throw error
   } catch (e) {
     throw toAppError(e)
+  }
+}
+
+/**
+ * What Auth says about this device's session:
+ * - `valid`: it refreshed, so the session works (for example the access token had expired, or the
+ *   device clock is off);
+ * - `rejected`: Auth refused the refresh token (session revoked, account deleted), or no session
+ *   is left to refresh;
+ * - `unknown`: Auth could not answer (offline, timeout, a 5xx, rate limited), so nothing is known.
+ */
+export type SessionCheck = 'valid' | 'rejected' | 'unknown'
+
+/**
+ * Asks Auth whether the session is still good by refreshing it. Call it after a request came back
+ * UNAUTHENTICATED, and sign out only on `rejected`: an UNAUTHENTICATED read can also come from a
+ * refresh that failed for a moment (supabase-js then sends the anon key) or from clock skew, and
+ * signing out then would throw away a refresh token that still works. Never rejects.
+ */
+export async function checkSession(c: PawpinClient): Promise<SessionCheck> {
+  try {
+    const { data, error } = await c.auth.refreshSession()
+    if (error === null) return data.session === null ? 'unknown' : 'valid'
+    if (isAuthSessionMissingError(error)) return 'rejected'
+    // A 4xx is Auth refusing the refresh token, except a timeout (408) or rate limit (429).
+    // A 5xx or no response arrives as AuthRetryableFetchError, and a refresh discarded because
+    // another one won is not a verdict either: both stay `unknown`.
+    if (isAuthApiError(error) && error.status >= 400 && error.status < 500) {
+      return error.status === 408 || error.status === 429 ? 'unknown' : 'rejected'
+    }
+    return 'unknown'
+  } catch {
+    return 'unknown'
   }
 }
 

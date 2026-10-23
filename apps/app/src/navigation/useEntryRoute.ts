@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getProfile } from '@pawpin/api'
 import { onboardingPathSchema, parseAppError, type OnboardingPath } from '@pawpin/core'
 
+import { confirmSession } from '../state/sessionCheck'
 import { useSession } from '../state/SessionProvider'
 import { local } from '../storage/local'
 import { resolveEntryRoute, type EntryRoute } from './entry'
@@ -47,17 +48,39 @@ export function useEntryRoute(): EntryRoute | null {
     enabled: signedIn,
   })
 
+  // An UNAUTHENTICATED profile read waits for Auth's verdict (shared with the
+  // query layer): a refused session signs out, a refreshed one is read again.
+  const unauthenticated =
+    profile.isError && parseAppError(profile.error).code === 'UNAUTHENTICATED'
+      ? profile.error
+      : null
+  const [checked, setChecked] = useState<Error | null>(null)
+  useEffect(() => {
+    if (unauthenticated === null) return
+    let active = true
+    void confirmSession(client, unauthenticated).then(() => {
+      if (active) setChecked(unauthenticated)
+    })
+    return () => {
+      active = false
+    }
+  }, [client, unauthenticated])
+
   if (device === null) return null
   if (!signedIn) return resolveEntryRoute({ ...device, signedIn, displayName: null })
   if (profile.data !== undefined) {
     return resolveEntryRoute({ ...device, signedIn, displayName: profile.data.displayName })
   }
+  if (profile.fetchStatus === 'fetching') return null
+
   const offline = profile.fetchStatus === 'paused'
-  if (offline || (profile.isError && parseAppError(profile.error).code !== 'UNAUTHENTICATED')) {
-    // The name can't be checked (offline with nothing cached, or a server
-    // fault). Open the app; its screens show their own error and offline states.
+  const failed = profile.isError && (unauthenticated === null || checked === unauthenticated)
+  if (offline || failed) {
+    // The name can't be checked (offline with nothing cached, Auth unreachable,
+    // or a server fault). Open the app; its screens show their own error and
+    // offline states, and the tab layout sends a signed-out user to sign-in.
     return device.pendingOnboardingPath === 'finder' ? '/(tabs)/find' : '/(tabs)/home'
   }
-  // Loading, or UNAUTHENTICATED: QueryProvider signs out and this re-runs signed out.
+  // Loading, or waiting for Auth's verdict on an UNAUTHENTICATED read.
   return null
 }

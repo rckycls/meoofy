@@ -2,7 +2,7 @@ import { Text } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { onlineManager } from '@tanstack/react-query'
 import { renderRouter, screen } from 'expo-router/testing-library'
-import { getProfile, type Profile } from '@pawpin/api'
+import { checkSession, getProfile, type Profile } from '@pawpin/api'
 import { AppError } from '@pawpin/core'
 
 import EntryIndex from '../../app/index'
@@ -12,8 +12,10 @@ import { testRootLayout } from '../testing/TestRoot'
 jest.mock('@pawpin/api', () => ({
   ...jest.requireActual('@pawpin/api'),
   getProfile: jest.fn(),
+  checkSession: jest.fn(),
 }))
 const mockGetProfile = jest.mocked(getProfile)
+const mockCheckSession = jest.mocked(checkSession)
 
 const alex: Profile = {
   id: 'u1',
@@ -43,6 +45,7 @@ function routes(client: ReturnType<typeof fakeClient>['client']) {
 beforeEach(async () => {
   await AsyncStorage.clear()
   mockGetProfile.mockReset()
+  mockCheckSession.mockReset()
 })
 
 describe('entry gate', () => {
@@ -73,15 +76,45 @@ describe('entry gate', () => {
     expect(router.getPathname()).toBe('/find')
   })
 
-  it('signs out and opens sign-in when the session no longer works', async () => {
+  it('signs out and opens sign-in when Auth confirms the session is gone', async () => {
     await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
     mockGetProfile.mockRejectedValue(new AppError('UNAUTHENTICATED'))
+    mockCheckSession.mockResolvedValue('rejected')
     const fake = fakeClient({ userId: 'u1' })
     const router = await renderRouter(routes(fake.client))
 
     expect(await screen.findByText('Sign-in screen')).toBeOnTheScreen()
     expect(router.getPathname()).toBe('/sign-in')
     expect(fake.auth.signOut).toHaveBeenCalledWith({ scope: 'local' })
+    // The query layer and the gate share one check.
+    expect(mockCheckSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the session and opens Home when Auth cannot be reached', async () => {
+    await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+    mockGetProfile.mockRejectedValue(new AppError('UNAUTHENTICATED'))
+    mockCheckSession.mockResolvedValue('unknown')
+    const fake = fakeClient({ userId: 'u1' })
+    const router = await renderRouter(routes(fake.client))
+
+    expect(await screen.findByText('Home screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/home')
+    expect(fake.auth.signOut).not.toHaveBeenCalled()
+  })
+
+  it('asks for the profile again once the session has refreshed', async () => {
+    await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+    mockGetProfile
+      .mockRejectedValueOnce(new AppError('UNAUTHENTICATED'))
+      .mockResolvedValue({ ...alex, displayName: '' })
+    mockCheckSession.mockResolvedValue('valid')
+    const fake = fakeClient({ userId: 'u1' })
+    const router = await renderRouter(routes(fake.client))
+
+    expect(await screen.findByText('Your-name screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/your-name')
+    expect(mockGetProfile).toHaveBeenCalledTimes(2)
+    expect(fake.auth.signOut).not.toHaveBeenCalled()
   })
 
   it('opens Home when the profile cannot be loaded for another reason', async () => {

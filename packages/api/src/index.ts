@@ -9,11 +9,13 @@ export {
 export { normalizeSupabaseError } from './errors'
 export type { Entitlement, Profile } from './types'
 export {
+  checkSession,
   deleteAccount,
   sendEmailCode,
   signInWithAppleIdToken,
   signOut,
   verifyEmailCode,
+  type SessionCheck,
 } from './auth'
 export { completeOnboarding, getProfile, updateDisplayName } from './profile'
 export { getEntitlement } from './entitlements'

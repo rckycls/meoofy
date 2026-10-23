@@ -9,9 +9,9 @@ import {
   type QueryKey,
 } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
-import { signOut } from '@pawpin/api'
 import { parseAppError } from '@pawpin/core'
 
+import { confirmSession } from './sessionCheck'
 import { useSession } from './SessionProvider'
 
 /** Network and rate-limit failures retry up to 3 times (with the default backoff); typed errors never do. */
@@ -29,6 +29,9 @@ export function shouldPersistQuery(queryKey: QueryKey): boolean {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
+/** After a refreshed session, a failed read is asked again at most once in this window. */
+const RECOVERY_WINDOW_MS = 30_000
+
 function persistStorage() {
   if (Platform.OS !== 'web') return AsyncStorage
   // No window while the web build renders on the server: nothing to restore.
@@ -38,29 +41,42 @@ function persistStorage() {
 /**
  * TanStack Query with the cache persisted for offline reads (AsyncStorage on
  * iOS, localStorage on the web). Must sit inside `SessionProvider`:
- * - a read that fails with UNAUTHENTICATED (revoked session, deleted account)
- *   signs out locally, and the tab layout then routes to sign-in;
+ * - a read that fails with UNAUTHENTICATED is checked with Auth
+ *   (`confirmSession`): a refused session signs out locally and the tab layout
+ *   routes to sign-in; a session that refreshed fine gets the read asked once
+ *   more; when Auth can't be reached nothing changes;
  * - when the signed-in user changes, the previous user's cache is dropped.
  */
 export function QueryProvider({ children }: { children: ReactNode }) {
   const { client, userId } = useSession()
 
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        queryCache: new QueryCache({
-          onError: (error) => {
-            if (parseAppError(error).code === 'UNAUTHENTICATED') {
-              // signOut forgets the session even when the request fails.
-              signOut(client).catch(() => undefined)
+  const [queryClient] = useState(() => {
+    const lastRecovery = new Map<string, number>()
+    const mayRecover = (queryHash: string) => {
+      const now = Date.now()
+      const last = lastRecovery.get(queryHash)
+      if (last !== undefined && now - last < RECOVERY_WINDOW_MS) return false
+      lastRecovery.set(queryHash, now)
+      return true
+    }
+
+    const created: QueryClient = new QueryClient({
+      queryCache: new QueryCache({
+        onError: (error, query) => {
+          if (parseAppError(error).code !== 'UNAUTHENTICATED') return
+          void confirmSession(client, error).then((outcome) => {
+            if (outcome === 'valid' && mayRecover(query.queryHash)) {
+              void created.invalidateQueries({ queryKey: query.queryKey, exact: true })
             }
-          },
-        }),
-        defaultOptions: {
-          queries: { retry: retryQuery, gcTime: WEEK_MS },
+          })
         },
       }),
-  )
+      defaultOptions: {
+        queries: { retry: retryQuery, gcTime: WEEK_MS },
+      },
+    })
+    return created
+  })
 
   const [persister] = useState(() =>
     createAsyncStoragePersister({ storage: persistStorage(), key: 'pawpin.queryCache' }),
@@ -82,6 +98,8 @@ export function QueryProvider({ children }: { children: ReactNode }) {
         dehydrateOptions: {
           shouldDehydrateQuery: (query) =>
             defaultShouldDehydrateQuery(query) && shouldPersistQuery(query.queryKey),
+          // TanStack would also save paused mutations, variables (pet details) included.
+          shouldDehydrateMutation: () => false,
         },
       }}
     >
