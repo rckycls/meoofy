@@ -11,9 +11,8 @@ import { useSession } from '../../state/SessionProvider'
 import { createNonce } from './appleNonce'
 import { useAuthFlow } from './AuthFlow'
 import { AuthFrame } from './AuthFrame'
+import { AuthProblem } from './AuthProblem'
 import { authCopy } from './copy'
-import { problemText } from './problem'
-import { ProblemNote } from './ProblemNote'
 import { nameFromApple } from './profileName'
 import { useContinueWhenSignedIn } from './useContinueWhenSignedIn'
 import { isValidEmail } from './validation'
@@ -186,7 +185,7 @@ export function SignInScreen() {
         returnKeyType="go"
         onSubmitEditing={() => void submitEmail()}
       />
-      {problem === null ? null : <ProblemNote>{problemText(problem)}</ProblemNote>}
+      {problem === null ? null : <AuthProblem error={problem} />}
       <Button
         variant="primary"
         label={copy.emailAction}

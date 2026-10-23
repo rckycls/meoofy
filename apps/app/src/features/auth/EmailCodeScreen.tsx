@@ -9,9 +9,9 @@ import { useSession } from '../../state/SessionProvider'
 import { stepBack } from '../onboarding/progress'
 import { useAuthFlow } from './AuthFlow'
 import { AuthFrame } from './AuthFrame'
+import { AuthProblem } from './AuthProblem'
 import { CodeInput, type CodeInputHandle } from './CodeInput'
 import { authCopy } from './copy'
-import { problemText } from './problem'
 import { ProblemNote } from './ProblemNote'
 import { TextLink } from './TextLink'
 import { useContinueWhenSignedIn } from './useContinueWhenSignedIn'
@@ -117,7 +117,7 @@ function CodeEntry({ email }: { email: string }) {
           {copy.expired.body}
         </ProblemNote>
       ) : null}
-      {problem === null ? null : <ProblemNote>{problemText(problem)}</ProblemNote>}
+      {problem === null ? null : <AuthProblem error={problem} />}
       {notice === null ? null : (
         <Text accessibilityLiveRegion="polite" style={styles.notice}>
           {notice}

@@ -46,6 +46,8 @@ export const authCopy = {
   },
   errors: {
     inviteOnly: 'This pilot is invite-only',
+    // The link under the invite-only message, shown only when a support address is configured.
+    contact: 'Email us to ask for an invite',
     rateLimited: 'Take a short break and try again',
     network: 'You seem to be offline. Check your connection and try again.',
     unknown: 'Something went wrong. Please try again.',

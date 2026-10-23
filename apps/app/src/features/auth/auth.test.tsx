@@ -1,4 +1,12 @@
-import { Dimensions, Platform, StyleSheet, Text, TextInput, processColor } from 'react-native'
+import {
+  Dimensions,
+  Linking,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  processColor,
+} from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library'
@@ -21,6 +29,7 @@ import SignIn from '../../../app/(auth)/sign-in'
 import YourName from '../../../app/(auth)/your-name'
 import EntryIndex from '../../../app/index'
 import AllSet from '../../../app/(onboarding)/all-set'
+import { env } from '../../env'
 import { fakeClient } from '../../testing/fakeClient'
 import { testRootLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
@@ -817,6 +826,107 @@ describe('email code', () => {
 
     const link = screen.getByRole('button', { name: 'Use a different email' })
     expect(StyleSheet.flatten(link.props.style).minHeight).toBeGreaterThanOrEqual(44)
+  })
+})
+
+describe('invite-only contact link', () => {
+  const SUPPORT = 'help@pawpin.example'
+
+  /** From sign-in to the invite-only refusal, as a stranger meets it. */
+  async function refuseStranger() {
+    mockSendEmailCode.mockRejectedValue(new AppError('INVITE_ONLY'))
+    await openSignIn()
+    await typeEmail()
+    await press('Sign in with email')
+    await screen.findByText(authCopy.errors.inviteOnly)
+  }
+
+  afterEach(() => {
+    env.supportEmail = null
+  })
+
+  it('offers a mailto link under the invite-only message when a support address is set', async () => {
+    env.supportEmail = SUPPORT
+
+    await refuseStranger()
+
+    const link = screen.getByRole('link', { name: authCopy.errors.contact })
+    expect(link.props.href).toBe(`mailto:${SUPPORT}`)
+  })
+
+  it('makes the link at least 44 pt tall', async () => {
+    env.supportEmail = SUPPORT
+
+    await refuseStranger()
+
+    const link = screen.getByRole('link', { name: authCopy.errors.contact })
+    expect(StyleSheet.flatten(link.props.style).minHeight).toBeGreaterThanOrEqual(44)
+  })
+
+  it('opens the mail app with that address when it is pressed', async () => {
+    env.supportEmail = SUPPORT
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined)
+    await refuseStranger()
+
+    await fireEvent.press(screen.getByRole('link', { name: authCopy.errors.contact }))
+
+    expect(openURL).toHaveBeenCalledWith(`mailto:${SUPPORT}`)
+  })
+
+  it('shows no link when no support address is set', async () => {
+    env.supportEmail = null
+
+    await refuseStranger()
+
+    expect(screen.getByText(authCopy.errors.inviteOnly)).toBeOnTheScreen()
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.queryByText(authCopy.errors.contact)).toBeNull()
+  })
+
+  it('shows the link for a refused Apple address too', async () => {
+    env.supportEmail = SUPPORT
+    mockSignInWithAppleIdToken.mockRejectedValue(new AppError('INVITE_ONLY'))
+    await openSignIn()
+
+    await press('Continue with Apple')
+
+    await screen.findByText(authCopy.errors.inviteOnly)
+    expect(screen.getByRole('link', { name: authCopy.errors.contact })).toBeOnTheScreen()
+  })
+
+  it('leaves it off every other problem', async () => {
+    env.supportEmail = SUPPORT
+    mockSendEmailCode.mockRejectedValue(new AppError('RATE_LIMITED'))
+    await openSignIn()
+    await typeEmail()
+
+    await press('Sign in with email')
+
+    expect(await screen.findByText(authCopy.errors.rateLimited)).toBeOnTheScreen()
+    expect(screen.queryByRole('link')).toBeNull()
+  })
+
+  it('shows it on the code screen too', async () => {
+    env.supportEmail = SUPPORT
+    mockVerifyEmailCode.mockRejectedValue(new AppError('INVITE_ONLY'))
+    await openCodeScreen()
+
+    await enterCode('123456')
+
+    expect(await screen.findByText(authCopy.errors.inviteOnly)).toBeOnTheScreen()
+    expect(screen.getByRole('link', { name: authCopy.errors.contact }).props.href).toBe(
+      `mailto:${SUPPORT}`,
+    )
+  })
+
+  it('shows no link on the code screen when no support address is set', async () => {
+    mockVerifyEmailCode.mockRejectedValue(new AppError('INVITE_ONLY'))
+    await openCodeScreen()
+
+    await enterCode('123456')
+
+    expect(await screen.findByText(authCopy.errors.inviteOnly)).toBeOnTheScreen()
+    expect(screen.queryByRole('link')).toBeNull()
   })
 })
 

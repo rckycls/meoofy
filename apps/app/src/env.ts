@@ -3,6 +3,11 @@ export type Env = {
   supabaseAnonKey: string
   /** Sentry is off when unset. */
   sentryDsn: string | null
+  /**
+   * Where invite-only visitors can write to ask for an invite. The invite-only message shows a
+   * `mailto:` link to it, and none when it is unset. Public by nature: it ships in the bundle.
+   */
+  supportEmail: string | null
   /** End-to-end seams such as "Use test photo" (development builds only). */
   e2e: boolean
   flags: {
@@ -15,6 +20,7 @@ type EnvSource = {
   EXPO_PUBLIC_SUPABASE_URL?: string
   EXPO_PUBLIC_SUPABASE_ANON_KEY?: string
   EXPO_PUBLIC_SENTRY_DSN?: string
+  EXPO_PUBLIC_SUPPORT_EMAIL?: string
   EXPO_PUBLIC_E2E?: string
 }
 
@@ -36,6 +42,7 @@ export function readEnv(source: EnvSource): Env {
     supabaseUrl: required(source, 'EXPO_PUBLIC_SUPABASE_URL'),
     supabaseAnonKey: required(source, 'EXPO_PUBLIC_SUPABASE_ANON_KEY'),
     sentryDsn: source.EXPO_PUBLIC_SENTRY_DSN?.trim() || null,
+    supportEmail: source.EXPO_PUBLIC_SUPPORT_EMAIL?.trim() || null,
     e2e: source.EXPO_PUBLIC_E2E === '1',
     flags: { reportMissing: false },
   }
@@ -47,5 +54,6 @@ export const env: Env = readEnv({
   EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
   EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  EXPO_PUBLIC_SUPPORT_EMAIL: process.env.EXPO_PUBLIC_SUPPORT_EMAIL,
   EXPO_PUBLIC_E2E: process.env.EXPO_PUBLIC_E2E,
 })

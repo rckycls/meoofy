@@ -11,6 +11,7 @@ describe('readEnv', () => {
       supabaseUrl: 'https://abc.supabase.co',
       supabaseAnonKey: 'anon',
       sentryDsn: null,
+      supportEmail: null,
       e2e: false,
       flags: { reportMissing: false },
     })
@@ -21,6 +22,14 @@ describe('readEnv', () => {
       readEnv({ ...base, EXPO_PUBLIC_SENTRY_DSN: 'https://k@o1.ingest.sentry.io/2' }).sentryDsn,
     ).toBe('https://k@o1.ingest.sentry.io/2')
     expect(readEnv({ ...base, EXPO_PUBLIC_SENTRY_DSN: ' ' }).sentryDsn).toBeNull()
+  })
+
+  it('reads the support address, treating an empty one as unset', () => {
+    expect(
+      readEnv({ ...base, EXPO_PUBLIC_SUPPORT_EMAIL: ' help@pawpin.example ' }).supportEmail,
+    ).toBe('help@pawpin.example')
+    expect(readEnv({ ...base, EXPO_PUBLIC_SUPPORT_EMAIL: ' ' }).supportEmail).toBeNull()
+    expect(readEnv(base).supportEmail).toBeNull()
   })
 
   it("turns the end-to-end seams on only for '1'", () => {
