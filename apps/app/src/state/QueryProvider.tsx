@@ -68,12 +68,14 @@ function savedData(client: PersistedClient): PersistedClient {
  *   more; when Auth can't be reached nothing changes;
  * - when the signed-in user changes, the previous user's cache and add-pet
  *   draft are dropped;
- * - when Auth confirms a session the app had opened on unconfirmed (offline),
- *   the reads on screen are asked again;
+ * - the saved cache records whose it is; one saved for someone else is
+ *   dropped instead of restored;
+ * - when supabase-js gets hold of a session the app had opened without
+ *   (offline), the reads on screen are asked again;
  * - on iOS, reads refresh when the app comes back to the front.
  */
 export function QueryProvider({ children }: { children: ReactNode }) {
-  const { client, userId, verified } = useSession()
+  const { client, userId, clientHasSession } = useSession()
 
   const [queryClient] = useState(() => {
     const lastRecovery = new Map<string, number>()
@@ -103,30 +105,36 @@ export function QueryProvider({ children }: { children: ReactNode }) {
     return created
   })
 
+  // Whose cache is being saved. It is the persister's `buster`: a restore keeps only a cache saved
+  // with the buster it is given, the person the app opens for. (A save can land after the person
+  // changed, so it is stamped when written, not with the restore-time value.)
+  const owner = useRef(userId)
   const [persister] = useState(() =>
     createAsyncStoragePersister({
       storage: storageFor(Platform.OS),
       key: QUERY_CACHE_KEY,
-      serialize: (client) => JSON.stringify(savedData(client)),
+      serialize: (client) => JSON.stringify({ ...savedData(client), buster: owner.current ?? '' }),
     }),
   )
 
   useEffect(() => followAppFocus(), [])
 
-  const previous = useRef({ userId, verified })
+  const previous = useRef({ userId, clientHasSession })
   useEffect(() => {
     const before = previous.current
-    previous.current = { userId, verified }
+    previous.current = { userId, clientHasSession }
     if (before.userId !== userId) {
       queryClient.clear()
+      // From here on, saves are the new person's (the save of the cleared cache included).
+      owner.current = userId
       // The draft belongs to the person who wrote it.
       void clearDraft().catch(() => undefined)
-    } else if (!before.verified && verified) {
+    } else if (!before.clientHasSession && clientHasSession) {
       // Reads made before Auth refreshed the session may have been refused; one already under way
       // is kept rather than sent again.
       void queryClient.invalidateQueries(undefined, { cancelRefetch: false })
     }
-  }, [queryClient, userId, verified])
+  }, [queryClient, userId, clientHasSession])
 
   return (
     <PersistQueryClientProvider
@@ -134,6 +142,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       persistOptions={{
         persister,
         maxAge: WEEK_MS,
+        buster: userId ?? '',
         dehydrateOptions: {
           // Any of the three that holds data, including one whose last refresh failed.
           shouldDehydrateQuery: (query) =>

@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { deleteAccount, signOut } from '@pawpin/api'
+import { deleteAccount, forgetSession, signOut } from '@pawpin/api'
 import { parseAppError } from '@pawpin/core'
 import { Button, Card, ScreenShell, colors, space, textStyle, type } from '@pawpin/ui'
 
@@ -18,7 +18,8 @@ import { accountCopy as copy } from './copy'
 
 /**
  * Name, email, sign out and delete account. Offline, signing out still works (it forgets the
- * session on this device); deleting the account waits for a connection and says so.
+ * session on this device); changing the name and deleting the account wait for a connection and
+ * say so.
  */
 export function AccountScreen() {
   const { client, email } = useSession()
@@ -38,8 +39,9 @@ export function AccountScreen() {
     setProblem(null)
     setSigningOut(true)
     try {
-      // The tab layout leads to sign-in once the session has ended.
-      await signOut(client)
+      // The tab layout leads to sign-in once the session has ended. Offline there is no Auth to
+      // tell, and supabase-js would first spend about 25 s retrying a refresh: forget it at once.
+      await (offline ? forgetSession(client) : signOut(client))
     } catch {
       setProblem(copy.errors.signOut)
       setSigningOut(false)
@@ -90,6 +92,7 @@ export function AccountScreen() {
               action={
                 <TextLink
                   label={copy.name.edit}
+                  disabled={offline}
                   onPress={() => router.push('/(auth)/your-name?mode=edit')}
                 />
               }
@@ -112,6 +115,7 @@ export function AccountScreen() {
                   <ActivityIndicator color={colors.cobalt} />
                 </View>
               )}
+              {offline ? <OfflineNote>{copy.name.editOffline}</OfflineNote> : null}
             </Row>
             <View style={styles.divider} />
             <Row label={copy.email.label}>

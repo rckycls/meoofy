@@ -9,6 +9,8 @@ export const accountCopy = {
     unavailable: 'Couldn’t load your name',
     // Offline with no saved profile.
     offline: 'Not available offline',
+    // Offline: the name is saved on the server.
+    editOffline: 'Changing your name needs a connection',
   },
   email: { label: 'Email', none: 'No email on file' },
   signOut: 'Sign out',

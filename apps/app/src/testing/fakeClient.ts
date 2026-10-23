@@ -10,12 +10,21 @@ type AuthListener = (event: string, session: FakeSession) => void
  *
  * `initialSession: 'held'` keeps INITIAL_SESSION back until `releaseInitialSession()`, the way
  * supabase-js holds it while it retries the refresh of an expired session (about 25 s offline).
+ *
+ * `signOutFails: true` answers `signOut` the way supabase-js does when it can't load the session
+ * (an expired access token whose refresh fails): an error, no event, and the session kept.
  */
 export function fakeClient({
   userId = null,
   email,
   initialSession = 'now',
-}: { userId?: string | null; email?: string; initialSession?: 'now' | 'held' } = {}) {
+  signOutFails = false,
+}: {
+  userId?: string | null
+  email?: string
+  initialSession?: 'now' | 'held'
+  signOutFails?: boolean
+} = {}) {
   let session: FakeSession = userId === null ? null : { user: { id: userId, email } }
   const listeners = new Set<AuthListener>()
   const waiting = new Set<AuthListener>()
@@ -42,6 +51,7 @@ export function fakeClient({
       }
     }),
     signOut: jest.fn(async () => {
+      if (signOutFails) return { error: { name: 'AuthRetryableFetchError', status: 0 } }
       session = null
       emit('SIGNED_OUT')
       return { error: null }

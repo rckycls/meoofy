@@ -157,6 +157,21 @@ describe('QueryProvider', () => {
     expect(mockCheckSession).toHaveBeenCalledWith(fake.client)
   })
 
+  it('signs out when Auth refused the session even if supabase-js cannot sign it out', async () => {
+    mockCheckSession.mockResolvedValue('rejected')
+    // supabase-js keeps a session it can't load and answers sign-out with an error.
+    const fake = fakeClient({ userId: 'u1', signOutFails: true })
+    await render(
+      <TestProviders client={fake.client}>
+        <SessionProbe />
+        <ProfileQuery queryFn={unauthenticated} />
+      </TestProviders>,
+    )
+
+    expect(await screen.findByText('signed out')).toBeOnTheScreen()
+    expect(fake.auth.signOut).toHaveBeenCalledWith({ scope: 'local' })
+  })
+
   it('keeps the session when Auth cannot be reached to confirm', async () => {
     mockCheckSession.mockResolvedValue('unknown')
     const fake = fakeClient({ userId: 'u1' })
@@ -238,6 +253,37 @@ describe('QueryProvider', () => {
     })
 
     expect(cacheProbe?.getQueryData(['pets'])).toBeUndefined()
+  })
+
+  it('saves the cache under the person it belongs to, and under the next person after a change', async () => {
+    type Saved = { buster: string }
+    const setItem = jest.mocked(AsyncStorage.setItem)
+    const savedWith = (marker: string) => {
+      // Earlier tests' throttled saves can still land, so look for this test's own data.
+      const write = setItem.mock.calls.find(
+        ([key, value]) => key === 'pawpin.queryCache' && value.includes(marker),
+      )?.[1]
+      if (write === undefined) throw new Error('not saved yet')
+      return JSON.parse(write) as Saved
+    }
+    const fake = fakeClient({ userId: 'u1' })
+    await render(
+      <TestProviders client={fake.client}>
+        <CacheProbe />
+      </TestProviders>,
+    )
+    await waitFor(() => expect(restoringProbe).toBe(false))
+
+    await act(async () => {
+      cacheProbe?.setQueryData(['pets'], [{ id: 'owned-by-u1' }])
+    })
+    expect((await waitFor(() => savedWith('owned-by-u1'), { timeout: 3000 })).buster).toBe('u1')
+
+    await act(async () => fake.signIn('u2'))
+    await act(async () => {
+      cacheProbe?.setQueryData(['pets'], [{ id: 'owned-by-u2' }])
+    })
+    expect((await waitFor(() => savedWith('owned-by-u2'), { timeout: 3000 })).buster).toBe('u2')
   })
 
   it('writes only the pets, entitlement and profile queries to disk, and no mutations', async () => {

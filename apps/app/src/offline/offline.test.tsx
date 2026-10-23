@@ -259,7 +259,7 @@ describe('offline (spec §9)', () => {
     expect(screen.queryByRole('button', { name: 'Save as draft' })).toBeNull()
   })
 
-  it('on Account, keeps Sign out and waits for a connection to delete the account', async () => {
+  it('on Account, keeps Sign out and waits for a connection to change the name or delete', async () => {
     startWithConnection(false)
     await openApp('/account')
 
@@ -267,6 +267,8 @@ describe('offline (spec §9)', () => {
     expect(button('Sign out')).toBeEnabled()
     expect(button('Delete account')).toBeDisabled()
     expect(screen.getByText('Deleting your account needs a connection')).toBeOnTheScreen()
+    expect(button('Edit name')).toBeDisabled()
+    expect(screen.getByText('Changing your name needs a connection')).toBeOnTheScreen()
     // Nothing saved and no network: the name says so instead of loading for ever.
     expect(screen.getByText('Not available offline')).toBeOnTheScreen()
     expect(screen.queryByRole('progressbar', { name: 'Loading your name' })).toBeNull()

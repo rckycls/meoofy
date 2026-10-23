@@ -7,7 +7,7 @@
 import { Text } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { act, renderRouter, screen, waitFor } from 'expo-router/testing-library'
+import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library'
 import {
   getEntitlement,
   getProfile,
@@ -19,6 +19,7 @@ import {
 } from '@pawpin/api'
 import { AppError } from '@pawpin/core'
 
+import AccountTab from '../../app/(tabs)/account'
 import EntryIndex from '../../app/index'
 import TabsLayout from '../../app/(tabs)/_layout'
 import HomeTab from '../../app/(tabs)/home'
@@ -74,9 +75,9 @@ function stub(label: string) {
 }
 
 /** Opens the app from its entry route, as a cold start does, with Auth still deciding. */
-async function coldStart() {
+async function coldStart({ signOutFails = false }: { signOutFails?: boolean } = {}) {
   queryClient = null
-  const fake = fakeClient({ userId: null, initialSession: 'held' })
+  const fake = fakeClient({ userId: null, initialSession: 'held', signOutFails })
   const router = await renderRouter(
     {
       _layout: testRootStackLayout(fake.client),
@@ -85,7 +86,7 @@ async function coldStart() {
       '(tabs)/home': HomeWithCache,
       '(tabs)/find': stub('Find screen'),
       '(tabs)/alerts': stub('Alerts screen'),
-      '(tabs)/account': stub('Account screen'),
+      '(tabs)/account': AccountTab,
       '(onboarding)/welcome': stub('Welcome screen'),
       '(auth)/sign-in': stub('Sign-in screen'),
       '(auth)/your-name': stub('Your-name screen'),
@@ -206,6 +207,64 @@ describe('an offline cold start with a stored session', () => {
 
     expect(await screen.findByText('Sign-in screen')).toBeOnTheScreen()
     expect(router.getPathname()).toBe('/sign-in')
+  })
+})
+
+describe('signing out from the saved session', () => {
+  async function signOutFromAccount() {
+    await fireEvent.press(screen.getByRole('tab', { name: 'Account' }))
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sign out' }))
+  }
+
+  it('offline, ends on sign-in with the cache and the draft gone', async () => {
+    // Offline supabase-js can't load the expired session, so its own sign-out would err and keep it.
+    const { router } = await coldStart({ signOutFails: true })
+    await screen.findByText('Milo')
+    await saveDraft({ name: 'Luna' })
+
+    await signOutFromAccount()
+
+    expect(await screen.findByText('Sign-in screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/sign-in')
+    expect(cachedPets()).toBeUndefined()
+    await settle()
+    expect(await loadDraft()).toBeNull()
+  })
+
+  it('back online, still ends on sign-in when supabase-js cannot sign the session out', async () => {
+    // supabase-js can't load the expired session it couldn't refresh, so it keeps it and errs.
+    const { router, fake } = await coldStart({ signOutFails: true })
+    await screen.findByText('Milo')
+    await act(async () => fake.releaseInitialSession())
+    await saveDraft({ name: 'Luna' })
+    await changeConnection(true)
+
+    await signOutFromAccount()
+
+    expect(await screen.findByText('Sign-in screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/sign-in')
+    expect(fake.auth.signOut).toHaveBeenCalledWith({ scope: 'local' })
+    expect(cachedPets()).toBeUndefined()
+    await settle()
+    expect(await loadDraft()).toBeNull()
+  })
+})
+
+describe('the saved cache', () => {
+  it('is not opened for someone else: a cache saved by another person is dropped', async () => {
+    // The app was killed before the save after a sign-in caught up.
+    await seedPersistedCache([[['pets'], [milo]]], { owner: 'u2' })
+
+    await coldStart()
+
+    expect(
+      await screen.findByText('You seem to be offline. Check your connection and try again.'),
+    ).toBeOnTheScreen()
+    expect(screen.queryByText('Milo')).toBeNull()
+    expect(cachedPets()).toBeUndefined()
+    // Gone from the device too: whatever is saved now is this person's (nothing yet).
+    await settle()
+    expect((await AsyncStorage.getItem('pawpin.queryCache')) ?? '').not.toContain('Milo')
   })
 })
 
