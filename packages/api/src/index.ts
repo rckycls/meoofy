@@ -11,12 +11,14 @@ export type { Entitlement, Profile } from './types'
 export {
   checkSession,
   deleteAccount,
+  readStoredSession,
   sendEmailCode,
   signInWithAppleIdToken,
   signInWithAppleWeb,
   signOut,
   verifyEmailCode,
   type SessionCheck,
+  type StoredSession,
 } from './auth'
 export { completeOnboarding, getProfile, updateDisplayName } from './profile'
 export { getEntitlement } from './entitlements'

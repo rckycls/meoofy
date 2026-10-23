@@ -1,6 +1,6 @@
 import { AppError } from '@pawpin/core'
 import { isAuthApiError, isAuthSessionMissingError } from '@supabase/supabase-js'
-import type { PawpinClient } from './client'
+import { sessionStoreOf, type PawpinClient } from './client'
 import { toAppError } from './errors'
 
 /**
@@ -98,6 +98,43 @@ export async function checkSession(c: PawpinClient): Promise<SessionCheck> {
     return 'unknown'
   } catch {
     return 'unknown'
+  }
+}
+
+/** The person a session stored on this device belongs to. */
+export type StoredSession = { userId: string; email: string | null }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+/**
+ * Whose session this device keeps, read from where supabase-js stores it: no request, no refresh,
+ * and no verdict on whether the session still works.
+ *
+ * Offline, supabase-js retries the refresh of an expired session for about 25 s and then reports
+ * no session, yet keeps it stored: it deletes a stored session only when Auth refuses it. So a
+ * session still stored here is one nobody has refused. The app uses this only to show what it
+ * saved for that person; requests still go through supabase-js, which refreshes the session or is
+ * refused. `null` when nothing usable is stored (or the client was not made by
+ * `createPawpinClient`). Never rejects.
+ */
+export async function readStoredSession(c: PawpinClient): Promise<StoredSession | null> {
+  const store = sessionStoreOf(c)
+  if (store === undefined) return null
+  try {
+    const raw = await store.storage.getItem(store.key)
+    if (raw === null) return null
+    const session: unknown = JSON.parse(raw)
+    // The fields supabase-js needs to refresh a session, and the user it belongs to.
+    if (!isRecord(session) || !isRecord(session.user)) return null
+    const { refresh_token: refreshToken, user } = session
+    if (typeof refreshToken !== 'string' || refreshToken === '') return null
+    if (typeof user.id !== 'string' || user.id === '') return null
+    return { userId: user.id, email: typeof user.email === 'string' ? user.email : null }
+  } catch {
+    // Storage that can't be read, or a value that isn't JSON: nothing usable is stored.
+    return null
   }
 }
 
