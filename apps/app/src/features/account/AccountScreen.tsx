@@ -1,11 +1,12 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { deleteAccount, signOut } from '@pawpin/api'
 import { parseAppError } from '@pawpin/core'
-import { Button, Card, ScreenShell, cardRoles, colors, space, textStyle, type } from '@pawpin/ui'
+import { Button, Card, ScreenShell, colors, space, textStyle, type } from '@pawpin/ui'
 
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useProfile } from '../../data/useProfile'
 import { ContentColumn } from '../../layout/ContentColumn'
 import { useSession } from '../../state/SessionProvider'
@@ -67,10 +68,6 @@ export function AccountScreen() {
     router.replace('/(auth)/sign-in')
   }
 
-  const closeDialog = () => {
-    if (!deleting) setConfirming(false)
-  }
-
   const displayName = profile.data?.displayName.trim()
 
   return (
@@ -128,43 +125,16 @@ export function AccountScreen() {
         </ContentColumn>
       </ScreenShell>
 
-      <Modal visible={confirming} transparent animationType="none" onRequestClose={closeDialog}>
-        <View style={styles.fill}>
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.backdrop]} />
-          {/* Larger text scrolls the dialog instead of clipping it. */}
-          <ScrollView contentContainerStyle={styles.overlay}>
-            <View
-              role="alertdialog"
-              aria-modal
-              aria-label={copy.deleteDialog.title}
-              accessibilityViewIsModal
-              style={styles.dialog}
-            >
-              <Card role="warning" title={copy.deleteDialog.title}>
-                <Text style={[styles.dialogBody, { color: cardRoles.warning.body }]}>
-                  {copy.deleteDialog.body}
-                </Text>
-                {/* Cancel comes first: the web focus trap puts focus on the first control, and a
-                    key press right after the dialog opens must not delete the account. */}
-                <View style={styles.actions}>
-                  <Button
-                    variant="secondary"
-                    label={copy.deleteDialog.cancel}
-                    disabled={deleting}
-                    onPress={closeDialog}
-                  />
-                  <Button
-                    variant="urgent"
-                    label={copy.deleteDialog.confirm}
-                    loading={deleting}
-                    onPress={() => void deleteNow()}
-                  />
-                </View>
-              </Card>
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
+      <ConfirmDialog
+        visible={confirming}
+        title={copy.deleteDialog.title}
+        body={copy.deleteDialog.body}
+        confirmLabel={copy.deleteDialog.confirm}
+        cancelLabel={copy.deleteDialog.cancel}
+        busy={deleting}
+        onConfirm={() => void deleteNow()}
+        onCancel={() => setConfirming(false)}
+      />
     </>
   )
 }
@@ -199,11 +169,4 @@ const styles = StyleSheet.create({
   value: { ...textStyle(type.cardTitle), color: colors.deepBlue },
   loading: { alignSelf: 'flex-start' },
   divider: { height: 1, backgroundColor: colors.line },
-  fill: { flex: 1 },
-  overlay: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: space[24] },
-  // The page behind, dimmed with the deep blue; the dialog itself stays fully opaque.
-  backdrop: { backgroundColor: colors.deepBlue, opacity: 0.5 },
-  dialog: { width: '100%', maxWidth: 420 },
-  dialogBody: textStyle(type.body),
-  actions: { gap: space[8], marginTop: space[8] },
 })
