@@ -17,7 +17,11 @@ export type PawpinClientOptions = {
   storage?: SessionStorage
   /**
    * Read a session from the URL the page was opened with. The web build needs it to finish Sign
-   * in with Apple, which redirects back with the session; leave it off everywhere else.
+   * in with Apple, which redirects back with the session; leave it off everywhere else. Turning it
+   * on also switches the client to the PKCE flow: the redirect then carries a one-time `?code=`
+   * that only the browser which started the sign-in (it holds the code verifier) can exchange. The
+   * default implicit flow takes whatever `#access_token=` fragment a page is opened with, so a
+   * crafted link could sign a person into someone else's account.
    */
   detectSessionInUrl?: boolean
 }
@@ -32,8 +36,11 @@ export function createPawpinClient(opts: PawpinClientOptions): PawpinClient {
       persistSession: true,
       autoRefreshToken: true,
       // Email code and Apple id token sign-in never redirect back with tokens in the URL; only
-      // the web's Apple redirect does, and it asks for this.
+      // the web's Apple redirect does, and it asks for this. PKCE goes with it (see the option):
+      // an implicit-style fragment is then refused, and a `?code=` needs this browser's verifier.
+      // Email codes still work: `verifyOtp` takes the 6-digit code and needs no verifier.
       detectSessionInUrl: opts.detectSessionInUrl ?? false,
+      ...(opts.detectSessionInUrl === true && { flowType: 'pkce' as const }),
     },
   })
 }

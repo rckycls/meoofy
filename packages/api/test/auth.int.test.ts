@@ -1,6 +1,7 @@
 import { AppError } from '@pawpin/core'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
+  createPawpinClient,
   deleteAccount,
   getProfile,
   sendEmailCode,
@@ -16,6 +17,8 @@ import {
   clientWithAccessToken,
   latestEmailCode,
   newOwner,
+  SUPABASE_URL,
+  ANON_KEY,
   track,
   uniqueEmail,
 } from './helpers'
@@ -41,6 +44,22 @@ describe('email code sign-in', () => {
     expect(data.session?.user.email).toBe(email)
     const profile = await getProfile(client)
     expect(profile.id).toBe(data.session?.user.id)
+  })
+
+  it('signs in the same way from the web client, which reads the URL and so uses PKCE', async () => {
+    const email = await allowlist(uniqueEmail('web'))
+    const client = createPawpinClient({
+      url: SUPABASE_URL,
+      anonKey: ANON_KEY,
+      detectSessionInUrl: true,
+    })
+
+    await sendEmailCode(client, email)
+    await verifyEmailCode(client, email, await latestEmailCode(email))
+
+    const { data } = await client.auth.getSession()
+    expect(data.session?.user.email).toBe(email)
+    expect((await getProfile(client)).id).toBe(data.session?.user.id)
   })
 
   it('refuses a stranger as INVITE_ONLY', async () => {

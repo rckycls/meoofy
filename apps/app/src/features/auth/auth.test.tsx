@@ -1,4 +1,4 @@
-import { Dimensions, Platform, StyleSheet, Text } from 'react-native'
+import { Dimensions, Platform, StyleSheet, Text, TextInput } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library'
@@ -131,6 +131,10 @@ async function openCodeScreen(email = EMAIL) {
 }
 
 const codeInput = () => screen.getByLabelText(authCopy.emailCode.codeLabel)
+
+// Jest's TextInput is a mock class whose `focus` is one shared jest.fn: a call means some field
+// was told to take the cursor, and the code field is the only one that is, on these screens.
+const focusField = jest.mocked(TextInput.prototype.focus)
 
 async function enterCode(digits: string) {
   await fireEvent.changeText(codeInput(), digits)
@@ -508,6 +512,88 @@ describe('email code', () => {
     expect(input.props.textContentType).toBe('oneTimeCode')
     expect(input.props.autoComplete).toBe('one-time-code')
     expect(StyleSheet.flatten(input.props.style).minHeight).toBeGreaterThanOrEqual(44)
+  })
+
+  describe('focus', () => {
+    beforeEach(() => focusField.mockClear())
+
+    it('can be tapped on iOS: the field is not drawn at an opacity iOS skips when hit-testing', async () => {
+      await openCodeScreen()
+
+      // iOS (Fabric) returns no view for a tap on one whose alpha is below 0.01.
+      const { opacity } = StyleSheet.flatten(codeInput().props.style)
+      expect(opacity).toBeGreaterThanOrEqual(0.01)
+      expect(opacity).toBeLessThan(0.05)
+    })
+
+    it('takes the cursor when the boxes are tapped, in case a tap gets past the field', async () => {
+      await openCodeScreen()
+      focusField.mockClear()
+
+      await fireEvent.press(screen.getByTestId('code-boxes'))
+
+      expect(focusField).toHaveBeenCalledTimes(1)
+    })
+
+    it('is not switched off while a code is checked, which would drop the keyboard on iOS', async () => {
+      mockVerifyEmailCode.mockReturnValue(new Promise(() => undefined))
+      await openCodeScreen()
+
+      await enterCode('123456')
+
+      expect(await screen.findByRole('button', { name: 'Verify code' })).toBeDisabled()
+      expect(codeInput().props.editable).not.toBe(false)
+    })
+
+    it('drops what is typed while a code is being checked', async () => {
+      mockVerifyEmailCode.mockReturnValue(new Promise(() => undefined))
+      await openCodeScreen()
+      await enterCode('123456')
+      await screen.findByRole('button', { name: 'Verify code' })
+
+      await enterCode('654321')
+
+      expect(codeInput()).toHaveDisplayValue('123456')
+      expect(mockVerifyEmailCode).toHaveBeenCalledTimes(1)
+    })
+
+    it('comes back to the field after a code is refused, ready for the next try (S05)', async () => {
+      mockVerifyEmailCode.mockRejectedValue(new AppError('UNAUTHENTICATED'))
+      await openCodeScreen()
+      focusField.mockClear()
+
+      await enterCode('123456')
+      await screen.findByText('That code didn’t work')
+
+      expect(focusField).toHaveBeenCalledTimes(1)
+    })
+
+    it('comes back to the field after a new code was sent', async () => {
+      mockVerifyEmailCode.mockRejectedValue(new AppError('UNAUTHENTICATED'))
+      await openCodeScreen()
+      await enterCode('123456')
+      await screen.findByText('That code didn’t work')
+      focusField.mockClear()
+
+      await press('Send a new code')
+      await screen.findByText(authCopy.emailCode.sentAgain(EMAIL))
+
+      expect(focusField).toHaveBeenCalledTimes(1)
+    })
+
+    it('stays where it is when a new code cannot be sent', async () => {
+      mockVerifyEmailCode.mockRejectedValue(new AppError('UNAUTHENTICATED'))
+      await openCodeScreen()
+      await enterCode('123456')
+      await screen.findByText('That code didn’t work')
+      focusField.mockClear()
+      mockSendEmailCode.mockRejectedValue(new AppError('NETWORK'))
+
+      await press('Send a new code')
+      await screen.findByText(authCopy.errors.network)
+
+      expect(focusField).not.toHaveBeenCalled()
+    })
   })
 
   it('verifies as soon as six digits are in', async () => {

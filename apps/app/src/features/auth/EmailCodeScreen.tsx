@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { StyleSheet, Text } from 'react-native'
 import { Redirect } from 'expo-router'
 import { sendEmailCode, verifyEmailCode } from '@pawpin/api'
@@ -9,7 +9,7 @@ import { useSession } from '../../state/SessionProvider'
 import { stepBack } from '../onboarding/progress'
 import { useAuthFlow } from './AuthFlow'
 import { AuthFrame } from './AuthFrame'
-import { CodeInput } from './CodeInput'
+import { CodeInput, type CodeInputHandle } from './CodeInput'
 import { authCopy } from './copy'
 import { problemText } from './problem'
 import { ProblemNote } from './ProblemNote'
@@ -35,6 +35,7 @@ function CodeEntry({ email }: { email: string }) {
   const { client } = useSession()
   const continueWhenSignedIn = useContinueWhenSignedIn()
   const countdown = useCountdown(RESEND_AFTER)
+  const codeField = useRef<CodeInputHandle>(null)
 
   const [code, setCode] = useState('')
   const [verifying, setVerifying] = useState(false)
@@ -59,6 +60,8 @@ function CodeEntry({ email }: { email: string }) {
       if (error.code === 'UNAUTHENTICATED') {
         setRefused(true)
         setCode('')
+        // Ready for the next try, even if the keyboard has gone.
+        codeField.current?.focus()
       } else {
         setProblem(error)
       }
@@ -76,6 +79,7 @@ function CodeEntry({ email }: { email: string }) {
       setCode('')
       setNotice(copy.sentAgain(email))
       countdown.restart()
+      codeField.current?.focus()
     } catch (e) {
       setProblem(parseAppError(e))
     } finally {
@@ -84,6 +88,8 @@ function CodeEntry({ email }: { email: string }) {
   }
 
   function change(text: string) {
+    // A code is being checked; what is typed meanwhile is dropped (the field stays as it is).
+    if (verifying) return
     const digits = codeDigits(text)
     setCode(digits)
     if (digits.length === CODE_LENGTH) void verify(digits)
@@ -98,7 +104,7 @@ function CodeEntry({ email }: { email: string }) {
         value={code}
         onChangeText={change}
         invalid={refused}
-        editable={!verifying}
+        ref={codeField}
       />
       {refused ? <ProblemNote title={copy.expired.title}>{copy.expired.body}</ProblemNote> : null}
       {problem === null ? null : <ProblemNote>{problemText(problem)}</ProblemNote>}
