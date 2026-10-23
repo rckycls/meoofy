@@ -1,11 +1,11 @@
 // The Mailpit helper's promise, checked on its own with messages put into Mailpit directly: a code
-// that was already in the inbox when the mark was taken is never returned, and a message is used
-// once. No browser is involved, so it runs for one project only.
+// that was already in the inbox when `codeAfter` began is never returned, however it got there and
+// whether or not anything read it. No browser is involved, so it runs for one project only.
 import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
-import { clearInbox, latestCode, markInbox } from '../support/mailpit'
+import { clearInbox, codeAfter } from '../support/mailpit'
 
 const MAILPIT_URL = process.env.MAILPIT_URL ?? 'http://127.0.0.1:54324'
 
@@ -35,39 +35,45 @@ test.afterEach(async () => {
   await clearInbox(address)
 })
 
-test('never returns a code that was in the inbox when it was marked', async () => {
+test('returns the code of the message that the send produced', async () => {
+  expect(await codeAfter(address, () => deliver(address, '111111'))).toBe('111111')
+})
+
+test('never returns an earlier message nothing has read, when the send lands late', async () => {
+  // The first email arrived and was never read (the case of a resend after a refused code).
   await deliver(address, '111111')
-  const mark = await markInbox(address)
 
-  // Only the old message is there: not a candidate, however long it has been waiting.
-  await expect(latestCode(address, mark, 1_000)).rejects.toThrow(/No new 6-digit code/)
+  // The second send returns at once; its email lands a moment after the helper starts polling.
+  const code = await codeAfter(address, async () => {
+    setTimeout(() => void deliver(address, '222222'), 400)
+  })
 
-  await deliver(address, '222222')
-  expect(await latestCode(address, mark)).toBe('222222')
+  expect(code).toBe('222222')
 })
 
-test('waits for a code that arrives after the mark, then returns the newest', async () => {
+test('gives up, rather than return an earlier message, when nothing new arrives', async () => {
   await deliver(address, '111111')
-  const mark = await markInbox(address)
 
-  const pending = latestCode(address, mark)
-  await deliver(address, '333333')
-
-  expect(await pending).toBe('333333')
+  await expect(codeAfter(address, async () => undefined, 1_000)).rejects.toThrow(
+    /No new 6-digit code/,
+  )
 })
 
-test('uses a message once, even with a mark taken too early', async () => {
-  const early = await markInbox(address)
-  await deliver(address, '444444')
-  expect(await latestCode(address, early)).toBe('444444')
+test('reads one code after another, each only from its own send', async () => {
+  const first = await codeAfter(address, () => deliver(address, '111111'))
+  const second = await codeAfter(address, () => deliver(address, '222222'))
+  const third = await codeAfter(address, async () => {
+    setTimeout(() => void deliver(address, '333333'), 300)
+  })
 
-  // The same mark again: the first message is not handed out a second time.
-  await expect(latestCode(address, early, 1_000)).rejects.toThrow(/No new 6-digit code/)
-  await deliver(address, '555555')
-  expect(await latestCode(address, early)).toBe('555555')
+  expect([first, second, third]).toEqual(['111111', '222222', '333333'])
 })
 
-test('refuses a mark for another address', async () => {
-  const mark = await markInbox('someone-else@pawpin.test')
-  await expect(latestCode(address, mark, 500)).rejects.toThrow(/inbox mark is for/)
+test('waits for the send to finish before it looks, and takes the newest if two arrive', async () => {
+  const code = await codeAfter(address, async () => {
+    await deliver(address, '444444')
+    await deliver(address, '555555')
+  })
+
+  expect(code).toBe('555555')
 })

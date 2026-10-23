@@ -2,24 +2,19 @@
 // app can't import the API package's test helpers, so this is the same idea written for the
 // end-to-end tests.
 //
-// A code can't be mistaken for an older one, whatever the test does:
-//   - `latestCode` needs an `InboxMark`, which `markInbox` takes before the action that sends the
-//     email, and only looks at messages that were not in the inbox then. A message that arrived
-//     earlier, such as the first email when a code is requested again, is never a candidate, and
-//     no code can be read without saying when the sending began.
-//   - a message is used once per process, so a mark taken too early (or reused) still can't return
-//     the same code twice.
-//   - the fixture also clears the inbox of the test's address before it starts, so nothing from an
-//     earlier run is there to begin with.
+// `codeAfter(email, send)` ties the read to the send. It notes which messages the inbox holds,
+// runs `send` (the action that makes the app email a code), and returns the code in a message that
+// was not there when it started. That guarantees:
+//   - a message that was already in the inbox, read or not, is never returned, so the first
+//     email's code cannot be taken for the code of a resend that has not arrived yet;
+//   - there is no mark to keep and reuse: the inbox is noted inside the call, right before `send`.
+// What it cannot know: which email is the answer to `send`. If an email from an earlier send lands
+// only after this call has started, it looks the same as the new one. The tests read each code
+// before they ask for the next, which is what rules that out; and the fixture clears the inbox of
+// the test's address before it starts, so nothing from an earlier run is there either.
 const MAILPIT_URL = process.env.MAILPIT_URL ?? 'http://127.0.0.1:54324'
 
 type Summary = { ID: string; Created: string; To: { Address: string }[] }
-
-/** The messages an address's inbox held when `markInbox` was called. */
-export type InboxMark = { readonly email: string; readonly ids: ReadonlySet<string> }
-
-/** Messages whose code `latestCode` has already returned. */
-const used = new Set<string>()
 
 /** Every message to `email`, newest first. */
 async function messagesTo(email: string): Promise<Summary[]> {
@@ -45,41 +40,26 @@ export async function clearInbox(email: string): Promise<void> {
 }
 
 /**
- * Notes what is in `email`'s inbox now. Call it right before the action that makes the app send a
- * code (and, to read a second code, again before asking for it), then read the code with
- * `latestCode`.
+ * Runs `send`, which makes the app email a code to `email`, and returns the 6-digit code in the
+ * newest message that was not in the inbox when this call began. Polls for up to `timeoutMs`
+ * (10 s) after `send` finishes, since Auth sends the email a moment after the app asks.
  */
-export async function markInbox(email: string): Promise<InboxMark> {
-  return { email, ids: new Set((await messagesTo(email)).map((message) => message.ID)) }
-}
-
-/**
- * The 6-digit code in the newest message to `email` that is not in `mark` and was not used
- * before. Polls for up to `timeoutMs` (10 s), since Auth sends the email a moment after the app
- * asks.
- */
-export async function latestCode(
+export async function codeAfter(
   email: string,
-  mark: InboxMark,
+  send: () => Promise<unknown>,
   timeoutMs = 10_000,
 ): Promise<string> {
-  if (mark.email.toLowerCase() !== email.toLowerCase()) {
-    throw new Error(`The inbox mark is for ${mark.email}, not ${email}`)
-  }
+  const before = new Set((await messagesTo(email)).map((message) => message.ID))
+  await send()
   const deadline = Date.now() + timeoutMs
   for (;;) {
-    const fresh = (await messagesTo(email)).find(
-      (message) => !mark.ids.has(message.ID) && !used.has(message.ID),
-    )
+    const fresh = (await messagesTo(email)).find((message) => !before.has(message.ID))
     if (fresh !== undefined) {
       const response = await fetch(`${MAILPIT_URL}/api/v1/message/${fresh.ID}`)
       if (!response.ok) throw new Error(`Mailpit answered ${response.status} for a message`)
       const { Text } = (await response.json()) as { Text: string }
       const code = /\b(\d{6})\b/.exec(Text)?.[1]
-      if (code !== undefined) {
-        used.add(fresh.ID)
-        return code
-      }
+      if (code !== undefined) return code
     }
     if (Date.now() > deadline) throw new Error(`No new 6-digit code for ${email} in Mailpit`)
     await new Promise((resolve) => setTimeout(resolve, 250))
