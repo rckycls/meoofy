@@ -12,6 +12,9 @@ export const petsCopy = {
     saveDraft: 'Save as draft',
     draftSaved: 'Draft saved on this device. Come back any time to finish.',
     draftFailed: 'We couldn’t save the draft. Please try again.',
+    // Offline the form offers the draft first; adding the pet waits for a connection.
+    offline:
+      'Adding a pet needs a connection. Save a draft now and finish when you’re back online.',
     privacy: {
       title: 'Only you can see this',
       body: 'Registration never makes a pet publicly searchable.',
@@ -20,6 +23,7 @@ export const petsCopy = {
   edit: {
     title: (name: string) => `Edit ${name}`,
     action: 'Save changes',
+    offline: 'Saving changes needs a connection',
   },
   fields: {
     name: 'Pet’s name',
@@ -63,6 +67,8 @@ export const petsCopy = {
     photos: 'Add reference photos',
     edit: 'Edit',
     delete: 'Delete pet',
+    // Offline, a cached pet is read-only.
+    offline: 'Editing and deleting need a connection',
     reportMissing: (name: string) => `Report ${name} missing`,
     notFound: {
       title: 'We couldn’t find this pet',

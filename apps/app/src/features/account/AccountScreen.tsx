@@ -9,14 +9,20 @@ import { Button, Card, ScreenShell, colors, space, textStyle, type } from '@pawp
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useProfile } from '../../data/useProfile'
 import { ContentColumn } from '../../layout/ContentColumn'
+import { OfflineNote } from '../../offline/OfflineNote'
+import { useOnline } from '../../offline/useOnline'
 import { useSession } from '../../state/SessionProvider'
 import { ProblemNote } from '../auth/ProblemNote'
 import { TextLink } from '../auth/TextLink'
 import { accountCopy as copy } from './copy'
 
-/** Name, email, sign out and delete account. */
+/**
+ * Name, email, sign out and delete account. Offline, signing out still works (it forgets the
+ * session on this device); deleting the account waits for a connection and says so.
+ */
 export function AccountScreen() {
   const { client, email } = useSession()
+  const offline = !useOnline()
   const queryClient = useQueryClient()
   const profile = useProfile()
   const [confirming, setConfirming] = useState(false)
@@ -94,6 +100,8 @@ export function AccountScreen() {
                 </Text>
               ) : profile.isError ? (
                 <Text style={styles.value}>{copy.name.unavailable}</Text>
+              ) : profile.fetchStatus === 'paused' ? (
+                <Text style={styles.value}>{copy.name.offline}</Text>
               ) : (
                 <View
                   accessible
@@ -117,9 +125,11 @@ export function AccountScreen() {
             loading={signingOut}
             onPress={() => void signOutNow()}
           />
+          {offline ? <OfflineNote>{copy.deleteOffline}</OfflineNote> : null}
           <Button
             variant="secondary"
             label={copy.deleteAccount}
+            disabled={offline}
             onPress={() => setConfirming(true)}
           />
         </ContentColumn>

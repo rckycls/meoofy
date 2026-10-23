@@ -1,9 +1,16 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AppState, Platform } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { createPawpinClient, type PawpinClient, type SessionStorage } from '@pawpin/api'
+import {
+  createPawpinClient,
+  readStoredSession,
+  type PawpinClient,
+  type SessionStorage,
+  type StoredSession,
+} from '@pawpin/api'
 
 import { env } from '../env'
+import { followConnection, useOnline } from '../offline/useOnline'
 
 export type Session = {
   client: PawpinClient
@@ -11,6 +18,12 @@ export type Session = {
   userId: string | null
   /** The signed-in person's email, or `null` when signed out or the session carries none. */
   email: string | null
+  /**
+   * False while the person is signed in only by the session stored on this device, which Auth
+   * has not refreshed yet (an offline cold start, or Auth out of reach). The app then shows what
+   * it saved for them; requests still go through supabase-js, which refreshes or is refused.
+   */
+  verified: boolean
 }
 
 const SessionContext = createContext<Session | null>(null)
@@ -38,12 +51,32 @@ function createClient(): PawpinClient {
   })
 }
 
-type AuthState = { ready: false } | { ready: true; userId: string | null; email: string | null }
+type User = { id: string; email: string | null; verified: boolean }
+type AuthState = { ready: false } | { ready: true; user: User | null }
+
+const unverified = (stored: StoredSession): User => ({
+  id: stored.userId,
+  email: stored.email,
+  verified: false,
+})
 
 /**
  * Owns the app's one Supabase client and follows its auth state. Children
  * render once the stored session has been read, so nothing below ever sees a
- * "not known yet" session (the splash screen covers the wait).
+ * "not known yet" session (the splash screen covers the wait). It also feeds
+ * the device's connection to TanStack Query (`followConnection`).
+ *
+ * Signed in, offline: supabase-js reports INITIAL_SESSION only once it has
+ * tried to refresh an expired session, which offline takes about 25 s of
+ * retries, and then reports no session while keeping it stored. It deletes a
+ * stored session only when Auth refuses it, so a session still stored is one
+ * nobody has refused:
+ * - offline with a stored session, the app opens at once for that person;
+ * - INITIAL_SESSION without a session, with one still stored, keeps them in;
+ * - Auth's later events decide: TOKEN_REFRESHED or SIGNED_IN for the same
+ *   person confirms them (and keeps their cache), another person replaces
+ *   them, and SIGNED_OUT (a refused session included) signs them out.
+ * Online, the app waits for supabase-js, which answers quickly there.
  *
  * `client` is for tests; the app lets the provider create its own.
  */
@@ -56,16 +89,49 @@ export function SessionProvider({
 }) {
   const [client] = useState(() => injected ?? createClient())
   const [auth, setAuth] = useState<AuthState>({ ready: false })
+  const [stored, setStored] = useState<StoredSession | null>(null)
+  const online = useOnline()
+
+  useEffect(() => followConnection(), [])
 
   useEffect(() => {
+    let active = true
+    // Counts events, so a storage read started for one is dropped once a newer one has arrived.
+    let latest = 0
     // Fires INITIAL_SESSION once the stored session is loaded, then on every
     // sign-in, sign-out and refresh. Only state is set here: awaiting other
     // client calls inside this callback can deadlock supabase-js.
-    const { data } = client.auth.onAuthStateChange((_event, session) => {
-      setAuth({ ready: true, userId: session?.user.id ?? null, email: session?.user.email ?? null })
+    const { data } = client.auth.onAuthStateChange((event, session) => {
+      const seen = ++latest
+      if (session !== null) {
+        const user = { id: session.user.id, email: session.user.email ?? null, verified: true }
+        setAuth({ ready: true, user })
+      } else if (event === 'INITIAL_SESSION') {
+        // No session to send, but one may still be stored that Auth couldn't be asked about.
+        void readStoredSession(client).then((kept) => {
+          if (active && seen === latest) {
+            setAuth({ ready: true, user: kept === null ? null : unverified(kept) })
+          }
+        })
+      } else {
+        setAuth({ ready: true, user: null })
+      }
     })
-    return () => data.subscription.unsubscribe()
+    void readStoredSession(client).then((kept) => {
+      if (active) setStored(kept)
+    })
+    return () => {
+      active = false
+      data.subscription.unsubscribe()
+    }
   }, [client])
+
+  useEffect(() => {
+    // Offline, open now on the stored session instead of waiting out supabase-js's retries. Once
+    // open, the app stays open until Auth says otherwise, even if the connection comes back first.
+    if (stored === null || online) return
+    setAuth((current) => (current.ready ? current : { ready: true, user: unverified(stored) }))
+  }, [stored, online])
 
   useEffect(() => {
     // Timers do not run while an iOS app is in the background, so token
@@ -78,11 +144,13 @@ export function SessionProvider({
     return () => subscription.remove()
   }, [client])
 
-  const userId = auth.ready ? auth.userId : null
-  const email = auth.ready ? auth.email : null
+  const user = auth.ready ? auth.user : null
+  const userId = user?.id ?? null
+  const email = user?.email ?? null
+  const verified = user?.verified ?? false
   const value = useMemo<Session>(
-    () => ({ client, signedIn: userId !== null, userId, email }),
-    [client, userId, email],
+    () => ({ client, signedIn: userId !== null, userId, email, verified }),
+    [client, userId, email, verified],
   )
 
   if (!auth.ready) return null

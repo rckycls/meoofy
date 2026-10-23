@@ -10,6 +10,9 @@ import { usePet } from '../../data/usePet'
 import { readyPhotos, usePhotos } from '../../data/usePhotos'
 import { env } from '../../env'
 import { ContentColumn } from '../../layout/ContentColumn'
+import { OfflineBanner } from '../../offline/OfflineBanner'
+import { OfflineNote } from '../../offline/OfflineNote'
+import { useOnline } from '../../offline/useOnline'
 import { testPhotoUri } from '../../photo/testPhotos'
 import { GUIDED_VIEWS, type GuidedView } from '../../photo/views'
 import { useSession } from '../../state/SessionProvider'
@@ -39,6 +42,7 @@ export function PhotoCaptureScreen() {
 }
 
 function PhotoCapture({ pet }: { pet: Pet }) {
+  const offline = !useOnline()
   const photos = usePhotos(pet.id)
   const [selected, setSelected] = useState<GuidedView>('front')
   const [cameraFor, setCameraFor] = useState<GuidedView | null>(null)
@@ -93,11 +97,15 @@ function PhotoCapture({ pet }: { pet: Pet }) {
 
   const allReady = GUIDED_VIEWS.every((view) => state[view] === 'ready')
   const loading = photos.isPending && photos.fetchStatus === 'fetching'
+  // Offline before the photos were loaded: what the pet has is unknown, so no tile claims a view
+  // is "Not added yet".
+  const unknown = photos.isPending && photos.fetchStatus === 'paused'
 
   return (
     <>
       <ScreenShell flow="owner" scroll>
         <ContentColumn style={styles.column}>
+          <OfflineBanner />
           <View style={styles.back}>
             <TextLink label={copy.back} onPress={() => stepBack(`/pets/${pet.id}`)} />
           </View>
@@ -110,8 +118,9 @@ function PhotoCapture({ pet }: { pet: Pet }) {
           <Card role="tip" title={copy.tips.title}>
             {copy.tips.body}
           </Card>
+          {offline ? <OfflineNote>{copy.offline}</OfflineNote> : null}
 
-          {loading ? (
+          {unknown ? null : loading ? (
             <View
               accessible
               accessibilityRole="progressbar"
@@ -147,6 +156,7 @@ function PhotoCapture({ pet }: { pet: Pet }) {
                     problem={problem[view]}
                     selected={view === selected}
                     canUseCamera={canUseCamera}
+                    offline={offline}
                     onSelect={() => setSelected(view)}
                     onTake={() => setCameraFor(view)}
                     onChoose={() => void choose(view)}

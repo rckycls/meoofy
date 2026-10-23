@@ -258,7 +258,7 @@ describe('QueryProvider', () => {
     const queryClient = cacheProbe
     if (queryClient === null) throw new Error('expected the query client')
 
-    onlineManager.setOnline(false)
+    await act(async () => onlineManager.setOnline(false))
     try {
       await act(async () => {
         // Offline, a mutation pauses with its variables (the pet's details) in memory.
@@ -292,7 +292,59 @@ describe('QueryProvider', () => {
       expect(saved.clientState.mutations).toEqual([])
       expect(cacheWrites().some((value) => value.includes('Milo'))).toBe(false)
     } finally {
-      onlineManager.setOnline(true)
+      await act(async () => onlineManager.setOnline(true))
     }
+  })
+
+  it('keeps saved data on disk when a refresh of it fails, and leaves the failure out', async () => {
+    type Saved = {
+      clientState: { queries: { queryKey: unknown[]; state: { status: string; error: unknown } }[] }
+    }
+    const setItem = jest.mocked(AsyncStorage.setItem)
+    const fake = fakeClient({ userId: 'u1' })
+    await render(
+      <TestProviders client={fake.client}>
+        <CacheProbe />
+      </TestProviders>,
+    )
+    await waitFor(() => expect(restoringProbe).toBe(false))
+    const queryClient = cacheProbe
+    if (queryClient === null) throw new Error('expected the query client')
+    await act(async () => {
+      queryClient.setQueryData(['pets'], [{ id: 'pet-refresh-failed' }])
+    })
+
+    // The connection drops in a way the device doesn't notice: the refresh fails.
+    await act(async () => {
+      await queryClient
+        .fetchQuery({
+          queryKey: ['pets'],
+          queryFn: () => Promise.reject(new AppError('NETWORK')),
+          retry: false,
+        })
+        .catch(() => undefined)
+    })
+    expect(queryClient.getQueryState(['pets'])?.status).toBe('error')
+    setItem.mockClear()
+
+    // The next save still holds the pets, as data that loaded, so the next start has them.
+    const saved = await waitFor(
+      () => {
+        // Earlier tests' throttled saves can still land, so look for this test's pets.
+        const write = setItem.mock.calls.find(
+          ([key, value]) => key === 'pawpin.queryCache' && value.includes('pet-refresh-failed'),
+        )?.[1]
+        if (write === undefined) throw new Error('not saved yet')
+        return JSON.parse(write) as Saved
+      },
+      { timeout: 3000 },
+    )
+    expect(saved.clientState.queries).toContainEqual(
+      expect.objectContaining({
+        queryKey: ['pets'],
+        state: expect.objectContaining({ status: 'success', error: null }),
+      }),
+    )
+    expect(saved.clientState.queries.every(({ state }) => state.error === null)).toBe(true)
   })
 })

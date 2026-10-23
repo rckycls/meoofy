@@ -17,6 +17,9 @@ import {
 } from '@pawpin/ui'
 
 import { ContentColumn } from '../../layout/ContentColumn'
+import { OfflineBanner } from '../../offline/OfflineBanner'
+import { OfflineNote } from '../../offline/OfflineNote'
+import { useOnline } from '../../offline/useOnline'
 import { confirmSession } from '../../state/sessionCheck'
 import { useSession } from '../../state/SessionProvider'
 import { ProblemNote } from '../auth/ProblemNote'
@@ -37,6 +40,8 @@ type PetFormProps = {
   /** "Step 1 of 3 · Basics" while adding. */
   step?: string
   actionLabel: string
+  /** What waits for a connection while offline, said next to the action that is off. */
+  offlineNote: string
   /** Where the fields start. A field the person hasn't touched follows it if it changes later. */
   initial: Partial<Values>
   showPrivacy: boolean
@@ -46,15 +51,19 @@ type PetFormProps = {
    * already left it (Back while the request was in flight). Rejects with whatever went wrong.
    */
   onSubmit: (basics: Basics) => Promise<() => void>
-  /** Keeps the form as it is on the device (adding only). */
+  /** Keeps the form as it is on the device (adding only). Offline it is the form's main action. */
   onSaveDraft?: (values: Values) => Promise<void>
 }
 
-/** The pet basics form of O03, for adding a pet and for editing one. */
+/**
+ * The pet basics form of O03, for adding a pet and for editing one. Offline nothing can be sent:
+ * the action is off and `offlineNote` says why, and an add form leads with Save as draft.
+ */
 export function PetForm({
   title,
   step,
   actionLabel,
+  offlineNote,
   initial,
   showPrivacy,
   onBack,
@@ -62,6 +71,7 @@ export function PetForm({
   onSaveDraft,
 }: PetFormProps) {
   const { client } = useSession()
+  const offline = !useOnline()
   const [edits, setEdits] = useState<Partial<Values>>({})
   const values: Values = { ...EMPTY, ...initial, ...edits }
   const [errors, setErrors] = useState<FieldErrors>({})
@@ -114,6 +124,25 @@ export function PetForm({
     }
   }
 
+  const draftFirst = offline && onSaveDraft !== undefined
+  const action = (
+    <Button
+      variant={draftFirst ? 'secondary' : 'primary'}
+      label={actionLabel}
+      loading={saving}
+      disabled={offline}
+      onPress={() => void submit()}
+    />
+  )
+  const draftAction =
+    onSaveDraft === undefined ? null : (
+      <Button
+        variant={draftFirst ? 'primary' : 'secondary'}
+        label={copy.add.saveDraft}
+        onPress={() => void saveAsDraft()}
+      />
+    )
+
   async function saveAsDraft() {
     if (onSaveDraft === undefined) return
     try {
@@ -131,6 +160,7 @@ export function PetForm({
     >
       <ScreenShell flow="owner" scroll>
         <ContentColumn style={styles.column}>
+          <OfflineBanner />
           <View style={styles.back}>
             <TextLink label={copy.back} onPress={onBack} />
           </View>
@@ -174,19 +204,9 @@ export function PetForm({
             </Card>
           ) : null}
           {problem === null ? null : <ProblemView error={problem} />}
-          <Button
-            variant="primary"
-            label={actionLabel}
-            loading={saving}
-            onPress={() => void submit()}
-          />
-          {onSaveDraft === undefined ? null : (
-            <Button
-              variant="secondary"
-              label={copy.add.saveDraft}
-              onPress={() => void saveAsDraft()}
-            />
-          )}
+          {offline ? <OfflineNote>{offlineNote}</OfflineNote> : null}
+          {draftFirst ? draftAction : action}
+          {draftFirst ? action : draftAction}
           {draftNote === 'saved' ? (
             <Text accessibilityLiveRegion="polite" style={styles.draftNote}>
               {copy.add.draftSaved}

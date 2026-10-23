@@ -38,6 +38,7 @@ export function AddPetScreen() {
       title={copy.add.title}
       step={copy.add.step}
       actionLabel={copy.add.action}
+      offlineNote={copy.add.offline}
       initial={draft ?? {}}
       showPrivacy
       onBack={() => stepBack('/(tabs)/home')}
@@ -68,6 +69,7 @@ export function EditPetScreen() {
     <PetForm
       title={copy.edit.title(current.name)}
       actionLabel={copy.edit.action}
+      offlineNote={copy.edit.offline}
       initial={valuesOf(current)}
       showPrivacy={false}
       onBack={back}

@@ -28,7 +28,7 @@ jest.mock('@pawpin/api', () => ({
 }))
 // jest-expo stubs the native module, so `randomUUID` would return undefined.
 jest.mock('expo-crypto', () => ({ randomUUID: jest.fn() }))
-// Task 22 replaces the draft stub with device storage; here its calls are what matters.
+// The draft's storage is tested in src/offline; here the form's calls are what matters.
 jest.mock('../../offline/draft', () => ({
   saveDraft: jest.fn(async () => undefined),
   loadDraft: jest.fn(async () => null),
@@ -367,19 +367,27 @@ describe('O03 Let’s meet your pet', () => {
     expect(mockClearDraft).toHaveBeenCalledTimes(1)
   })
 
-  it('asks the server even when the device thinks it is offline, and reports a failure at once', async () => {
+  it('offline, offers the draft first and waits for a connection to add the pet', async () => {
     onlineManager.setOnline(false)
-    mockCreatePet.mockRejectedValue(new AppError('NETWORK'))
     await open('/pets/new')
     await screen.findByRole('header', { name: 'Let’s meet your pet' })
     await fireEvent.changeText(field('Pet’s name'), 'Milo')
 
-    await pressButton('Continue to photos')
-
+    expect(screen.getByRole('button', { name: 'Save as draft' })).toHaveStyle({
+      backgroundColor: colors.cobalt,
+    })
+    expect(screen.getByRole('button', { name: 'Continue to photos' })).toBeDisabled()
     expect(
-      await screen.findByText('You seem to be offline. Check your connection and try again.'),
+      screen.getByText(
+        'Adding a pet needs a connection. Save a draft now and finish when you’re back online.',
+      ),
     ).toBeOnTheScreen()
-    expect(mockCreatePet).toHaveBeenCalledTimes(1)
+
+    await act(async () => onlineManager.setOnline(true))
+
+    expect(screen.getByRole('button', { name: 'Continue to photos' })).toBeEnabled()
+    await pressButton('Continue to photos')
+    await waitFor(() => expect(mockCreatePet).toHaveBeenCalledTimes(1))
   })
 
   it('explains the Free 3-pet limit in a community card, and links to Compare plans', async () => {
@@ -882,18 +890,21 @@ describe('Edit pet', () => {
     expect(field('Breed or description').props.value).toBe('Beagle')
   })
 
-  it('asks the server even when the device thinks it is offline, and reports a failure at once', async () => {
-    mockUpdatePet.mockRejectedValue(new AppError('NETWORK'))
+  it('offline, keeps the changes and waits for a connection to save them', async () => {
     await openEdit()
-    onlineManager.setOnline(false)
     await fireEvent.changeText(field('Breed or description'), 'Beagle')
 
+    await act(async () => onlineManager.setOnline(false))
+
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    expect(screen.getByText('Saving changes needs a connection')).toBeOnTheScreen()
+
+    await act(async () => onlineManager.setOnline(true))
     await pressButton('Save changes')
 
-    expect(
-      await screen.findByText('You seem to be offline. Check your connection and try again.'),
-    ).toBeOnTheScreen()
-    expect(mockUpdatePet).toHaveBeenCalledTimes(1)
+    await waitFor(() =>
+      expect(mockUpdatePet).toHaveBeenCalledWith(fake.client, PET_ID, { breed: 'Beagle' }),
+    )
   })
 
   it('says there is no such pet when it cannot be found', async () => {
@@ -1019,7 +1030,8 @@ describe('Delete pet', () => {
   it('says when the device is offline, without waiting for the network to come back', async () => {
     mockDeletePet.mockRejectedValueOnce(new AppError('NETWORK'))
     const { dialog } = await openDeleteDialog()
-    onlineManager.setOnline(false)
+    // The dialog was already open: the confirmed deletion is still tried, and fails at once.
+    await act(async () => onlineManager.setOnline(false))
 
     await fireEvent.press(within(dialog).getByRole('button', { name: CONFIRM }))
 

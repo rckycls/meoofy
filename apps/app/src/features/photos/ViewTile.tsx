@@ -21,6 +21,8 @@ export type ViewTileProps = {
   selected: boolean
   /** False where there is no camera view (the web): the person chooses a photo instead. */
   canUseCamera: boolean
+  /** The device is offline: no photo can be sent, so the actions are off (the screen says why). */
+  offline: boolean
   onSelect: () => void
   onTake: () => void
   onChoose: () => void
@@ -65,6 +67,7 @@ export function ViewTile({
   problem,
   selected,
   canUseCamera,
+  offline,
   onSelect,
   onTake,
   onChoose,
@@ -74,6 +77,7 @@ export function ViewTile({
 }: ViewTileProps) {
   const { title, hint } = copy.views[view]
   const busy = state === 'checking' || state === 'uploading'
+  const off = busy || offline
   // A failed new photo leaves the earlier one in place, and the words say so.
   const keptPrevious = state === 'ready' && problem !== undefined
   const status = keptPrevious ? copy.status.keptPrevious : copy.status[state]
@@ -107,7 +111,7 @@ export function ViewTile({
             <Button
               variant="primary"
               label={copy.actions.retry}
-              disabled={busy || retryWaiting}
+              disabled={off || retryWaiting}
               onPress={onRetry}
             />
           ) : null}
@@ -116,13 +120,13 @@ export function ViewTile({
               <Button
                 variant={retrying ? 'secondary' : 'primary'}
                 label={photo === undefined ? copy.actions.take : copy.actions.retake}
-                disabled={busy}
+                disabled={off}
                 onPress={onTake}
               />
               <Button
                 variant="secondary"
                 label={copy.actions.library}
-                disabled={busy}
+                disabled={off}
                 onPress={onChoose}
               />
             </>
@@ -130,7 +134,7 @@ export function ViewTile({
             <Button
               variant={retrying ? 'secondary' : 'primary'}
               label={copy.actions.upload}
-              disabled={busy}
+              disabled={off}
               onPress={onChoose}
             />
           )}
@@ -138,7 +142,7 @@ export function ViewTile({
             <Button
               variant="secondary"
               label={copy.actions.testPhoto}
-              disabled={busy}
+              disabled={off}
               onPress={onTestPhoto}
             />
           )}

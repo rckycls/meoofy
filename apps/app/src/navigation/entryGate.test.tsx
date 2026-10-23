@@ -1,7 +1,7 @@
 import { Text } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { onlineManager } from '@tanstack/react-query'
-import { renderRouter, screen } from 'expo-router/testing-library'
+import { act, renderRouter, screen } from 'expo-router/testing-library'
 import { checkSession, getProfile, type Profile } from '@pawpin/api'
 import { AppError } from '@pawpin/core'
 
@@ -136,7 +136,7 @@ describe('entry gate', () => {
       expect(router.getPathname()).toBe('/home')
       expect(mockGetProfile).not.toHaveBeenCalled()
     } finally {
-      onlineManager.setOnline(true)
+      await act(async () => onlineManager.setOnline(true))
     }
   })
 })

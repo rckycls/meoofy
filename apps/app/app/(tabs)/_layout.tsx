@@ -7,6 +7,8 @@ import { TabBar, WebNav, colors, type NavKey } from '@pawpin/ui'
 import { useRecordOnboardingPath } from '../../src/features/onboarding/useRecordOnboardingPath'
 import { useLayoutMode } from '../../src/layout/layoutMode'
 import { navKeyForPath, tabHref } from '../../src/navigation/tabs'
+import { OfflineBanner } from '../../src/offline/OfflineBanner'
+import { useOnline } from '../../src/offline/useOnline'
 import { useSession } from '../../src/state/SessionProvider'
 
 function select(key: NavKey) {
@@ -22,8 +24,12 @@ export default function TabsLayout() {
   const desktop = useLayoutMode() === 'desktop'
   const active = navKeyForPath(usePathname())
   const insets = useSafeAreaInsets()
-  // Under the top nav the screens no longer touch the top edge.
-  const screenInsets = useMemo(() => (desktop ? { ...insets, top: 0 } : insets), [desktop, insets])
+  const offline = !useOnline()
+  // Under the top nav or the offline banner the screens no longer touch the top edge.
+  const screenInsets = useMemo(
+    () => (desktop || offline ? { ...insets, top: 0 } : insets),
+    [desktop, offline, insets],
+  )
 
   // The tabs are for signed-in users. A session that ends mid-use (sign-out,
   // or a read that came back UNAUTHENTICATED) lands here and goes to sign-in.
@@ -41,6 +47,10 @@ export default function TabsLayout() {
           <WebNav active={active} onSelect={select} />
         </View>
       ) : null}
+      {/* On a phone the banner is the top of the screen; on desktop it sits under the nav. */}
+      <OfflineBanner
+        insets={{ top: desktop ? 0 : insets.top, left: insets.left, right: insets.right }}
+      />
       <SafeAreaInsetsContext.Provider value={screenInsets}>
         <Tabs
           screenOptions={{ headerShown: false }}

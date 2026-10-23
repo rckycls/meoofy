@@ -21,6 +21,9 @@ import { useDeletePet } from '../../data/useDeletePet'
 import { usePet } from '../../data/usePet'
 import { env } from '../../env'
 import { ContentColumn } from '../../layout/ContentColumn'
+import { OfflineBanner } from '../../offline/OfflineBanner'
+import { OfflineNote } from '../../offline/OfflineNote'
+import { useOnline } from '../../offline/useOnline'
 import { confirmSession } from '../../state/sessionCheck'
 import { useSession } from '../../state/SessionProvider'
 import { ProblemNote } from '../auth/ProblemNote'
@@ -37,11 +40,12 @@ function detail(pet: Pet): string {
   return parts.length === 0 ? petsCopy.species[pet.species] : parts.join(' · ')
 }
 
-/** A pet screen's scrolling page: the owner-flow tint, a column, and a way Back. */
+/** A pet screen's scrolling page: the owner-flow tint, a column, the offline banner and a way Back. */
 function Frame({ children }: { children: ReactNode }) {
   return (
     <ScreenShell flow="owner" scroll>
       <ContentColumn style={styles.column}>
+        <OfflineBanner />
         <View style={styles.back}>
           <TextLink label={petsCopy.back} onPress={() => stepBack('/(tabs)/home')} />
         </View>
@@ -106,10 +110,11 @@ export function PetUnavailable({ pet }: { pet: ReturnType<typeof usePet> }) {
   )
 }
 
-/** O05: the private profile with Discovery Off explained, Edit, and Delete. */
+/** O05: the private profile with Discovery Off explained, Edit, and Delete (read-only offline). */
 export function PetProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { client, signedIn } = useSession()
+  const offline = !useOnline()
   const pet = usePet(id)
   const remove = useDeletePet()
   const [confirming, setConfirming] = useState(false)
@@ -181,9 +186,11 @@ export function PetProfileScreen() {
           </Text>
         </Card>
         {problem === null ? null : <ProblemNote>{problem}</ProblemNote>}
+        {offline ? <OfflineNote>{copy.offline}</OfflineNote> : null}
         <Button
           variant="primary"
           label={copy.edit}
+          disabled={offline}
           onPress={() => router.push(`/pets/${current.id}/edit`)}
         />
         <Button
@@ -199,7 +206,12 @@ export function PetProfileScreen() {
             onPress={() => router.push(`/pets/${current.id}/report-missing`)}
           />
         ) : null}
-        <Button variant="secondary" label={copy.delete} onPress={() => setConfirming(true)} />
+        <Button
+          variant="secondary"
+          label={copy.delete}
+          disabled={offline}
+          onPress={() => setConfirming(true)}
+        />
       </Frame>
 
       <ConfirmDialog

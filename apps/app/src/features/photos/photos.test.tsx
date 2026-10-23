@@ -759,18 +759,6 @@ describe('upload problems', () => {
     expect(uploadCall(1).id).toBe(uuid(1))
   })
 
-  it('asks the server even when the device thinks it is offline, and reports a failure at once', async () => {
-    mockUploadPhoto.mockRejectedValueOnce(new AppError('NETWORK'))
-    libraryGives('front')
-    await openPhotos()
-    onlineManager.setOnline(false)
-
-    await pressButton('Choose from library')
-
-    expect(await screen.findByText(OFFLINE)).toBeOnTheScreen()
-    expect(mockUploadPhoto).toHaveBeenCalledTimes(1)
-  })
-
   it('deletes the photo it gave up on once another is saved for the view', async () => {
     mockUploadPhoto.mockRejectedValueOnce(new AppError('NETWORK'))
     libraryGives('front')
@@ -1322,6 +1310,20 @@ describe('usePhotoUpload', () => {
     await act(async () => finishUpload())
     await waitFor(() => expect(result.current.state.front).toBe('ready'))
     expect(result.current.problem).toEqual({})
+  })
+
+  it('asks the server even when the device thinks it is offline, and reports a failure at once', async () => {
+    // The screen offers no photo actions offline; an upload already under way still ends at once.
+    mockUploadPhoto.mockRejectedValueOnce(new AppError('NETWORK'))
+    const result = await renderUpload()
+    await act(async () => onlineManager.setOnline(false))
+
+    await act(async () => {
+      await result.current.upload('front', 'file:///library/a/front.jpg')
+    })
+
+    expect(mockUploadPhoto).toHaveBeenCalledTimes(1)
+    expect(result.current.problem.front).toBe('NETWORK')
   })
 
   it('keeps the previous ready photo in its state when a new one fails, and says why', async () => {

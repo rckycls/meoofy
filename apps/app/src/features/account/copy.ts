@@ -7,10 +7,13 @@ export const accountCopy = {
     loading: 'Loading your name',
     notSet: 'Not set',
     unavailable: 'Couldn’t load your name',
+    // Offline with no saved profile.
+    offline: 'Not available offline',
   },
   email: { label: 'Email', none: 'No email on file' },
   signOut: 'Sign out',
   deleteAccount: 'Delete account',
+  deleteOffline: 'Deleting your account needs a connection',
   deleteDialog: {
     title: 'Delete your account?',
     body: 'This permanently deletes your account, your pets and their photos. It can’t be undone.',

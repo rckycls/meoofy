@@ -7,6 +7,12 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 )
 
+// NetInfo's official mock: always connected, and listeners are never called. Tests that need the
+// connection to change drive it through src/testing/netInfo.ts.
+jest.mock('@react-native-community/netinfo', () =>
+  require('@react-native-community/netinfo/jest/netinfo-mock.js'),
+)
+
 // TanStack Query schedules garbage-collection timers (a week, for the
 // persisted cache) that would keep Jest alive after the last test. Unref'd
 // timers still fire but no longer hold the process open.
