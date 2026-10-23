@@ -1,4 +1,9 @@
-import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
+import {
+  ImageManipulator,
+  SaveFormat,
+  type ImageManipulatorContext,
+  type ImageRef,
+} from 'expo-image-manipulator'
 import { decode as decodeJpeg } from 'jpeg-js'
 import { analyzeGray, assessPhoto, LIMITS, type PhotoRejection } from '@pawpin/core'
 
@@ -38,12 +43,15 @@ function bytesFromBase64(base64: string): Uint8Array {
 }
 
 const manipulateWithExpo: Manipulate = async (uri, longEdge, quality) => {
-  // A bound given when the image is loaded makes the decoder downsample it, so a 48-megapixel photo
-  // is never held in memory whole, and it keeps the aspect ratio, bakes in the EXIF orientation and
-  // leaves a smaller image alone. The same call turns HEIC (iOS) or a PNG into JPEG.
-  const context = ImageManipulator.manipulate(uri, { maxWidth: longEdge, maxHeight: longEdge })
-  const image = await context.renderAsync()
+  let context: ImageManipulatorContext | undefined
+  let image: ImageRef | undefined
   try {
+    // A bound given when the image is loaded makes the decoder downsample it, so a 48-megapixel
+    // photo is never held in memory whole, and it keeps the aspect ratio, bakes in the EXIF
+    // orientation and leaves a smaller image alone. The same call turns HEIC (iOS) or a PNG into
+    // JPEG.
+    context = ImageManipulator.manipulate(uri, { maxWidth: longEdge, maxHeight: longEdge })
+    image = await context.renderAsync()
     const saved = await image.saveAsync({
       format: SaveFormat.JPEG,
       compress: quality,
@@ -57,9 +65,10 @@ const manipulateWithExpo: Manipulate = async (uri, longEdge, quality) => {
       bytes: bytesFromBase64(saved.base64),
     }
   } finally {
-    // Free the decoded bitmaps now rather than whenever the garbage collector gets to them.
-    image.release()
-    context.release()
+    // Free the decoded bitmaps now rather than whenever the garbage collector gets to them, on
+    // every path: a corrupt image fails in `renderAsync`, with only the context to release.
+    image?.release()
+    context?.release()
   }
 }
 

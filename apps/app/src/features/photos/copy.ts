@@ -85,6 +85,8 @@ export const photosCopy = {
     NETWORK: 'You seem to be offline. Check your connection and try again.',
     UNKNOWN: 'Something went wrong. Please try again.',
   } satisfies Record<PhotoProblem, string>,
+  // Shown while "Try again" waits after RATE_LIMITED (`RATE_LIMITED_RETRY_DELAY_MS`).
+  retryWait: 'You can try again in a minute.',
   loadFailed: 'We couldn’t load your photos. Please try again.',
   // The photo library, or the bundled test photo, could not be opened.
   sourceFailed: 'We couldn’t open your photos. Please try again.',

@@ -63,18 +63,29 @@ function withSaved(photos: PetPhoto[] | undefined, saved: PetPhoto): PetPhoto[] 
  *   on, otherwise `ready` if the view has a ready photo. A new photo that fails therefore leaves
  *   the view `ready` with its old photo (it is `error` only when there is none), and `problem`
  *   says what went wrong with the new one.
- * - `onSaved` is called with the view whose new photo has just been saved.
+ * - `onSaved` is called with the view whose new photo has just been saved, and `onFailed` with the
+ *   view and the problem when a photo is not added.
  * - Each new photo gets a fresh id (`expo-crypto`: Hermes has no Web Crypto global). When sending
  *   fails in a way that may pass (network, rate limit, anything unexpected) the prepared photo and
  *   its id are kept, and `retry` (or `upload` with the same `uri`) sends the same photo with the
  *   same id, which the server treats as one upload however often it arrives.
  * - A photo that is given up on (another one is chosen, or the server refuses it) may be left
  *   `pending` on the server, where it counts towards the pet's photo limit until cleanup removes
- *   it a day later. Once the view has a new photo saved, those are deleted, so they never add up.
+ *   it a day later. When a new photo for the view is saved, the ones given up on for that view are
+ *   deleted on a best-effort basis (a failed delete is ignored; cleanup still removes it). This
+ *   only runs after a save, so it keeps abandoned photos from piling up in the ordinary flow. It
+ *   does not help a pet that is already at the limit: the save it waits for is what the server
+ *   refuses.
  */
 export function usePhotoUpload(
   petId: string,
-  { onSaved }: { onSaved?: (view: PhotoView) => void } = {},
+  {
+    onSaved,
+    onFailed,
+  }: {
+    onSaved?: (view: PhotoView) => void
+    onFailed?: (view: PhotoView, problem: PhotoProblem) => void
+  } = {},
 ) {
   const { client } = useSession()
   const queryClient = useQueryClient()
@@ -88,6 +99,8 @@ export function usePhotoUpload(
   const running = useRef(new Set<PhotoView>())
   const onSavedRef = useRef(onSaved)
   onSavedRef.current = onSaved
+  const onFailedRef = useRef(onFailed)
+  onFailedRef.current = onFailed
 
   const send = useMutation({
     // Ask the server even when the device believes it is offline: a failure is reported at once,
@@ -110,6 +123,7 @@ export function usePhotoUpload(
       const fail = (why: PhotoProblem) => {
         setProblem((all) => ({ ...all, [view]: why }))
         show('error')
+        onFailedRef.current?.(view, why)
       }
       /** Gives up on the photo kept for the view; its id may be a pending photo on the server. */
       const abandon = () => {

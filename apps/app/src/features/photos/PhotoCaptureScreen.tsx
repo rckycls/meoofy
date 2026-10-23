@@ -19,6 +19,7 @@ import { stepBack } from '../onboarding/progress'
 import { PetUnavailable } from '../pets/PetProfileScreen'
 import { CameraSheet, pickFromLibrary } from './CameraSheet'
 import { photosCopy as copy } from './copy'
+import { useRetryCooldown } from './useRetryCooldown'
 import { ViewTile } from './ViewTile'
 
 /** The first view other than `saved` that has no ready photo, or `saved` when all have one. */
@@ -49,9 +50,14 @@ function PhotoCapture({ pet }: { pet: Pet }) {
   // has gone to another tile meanwhile stays where they are.) `onSaved` runs after the render that
   // showed the upload, so it reads the states of that render from a ref.
   const states = useRef<Record<PhotoView, PhotoState> | null>(null)
+  const cooldown = useRetryCooldown()
   const { upload, retry, state, problem } = usePhotoUpload(pet.id, {
     onSaved: (saved) =>
       setSelected((current) => (current === saved ? nextView(saved, states.current) : current)),
+    // The server's limit is per hour, so the same photo is not sent again at once.
+    onFailed: (view, why) => {
+      if (why === 'RATE_LIMITED') cooldown.start(view)
+    },
   })
   states.current = state
   const ready = readyPhotos(photos.data)
@@ -145,6 +151,7 @@ function PhotoCapture({ pet }: { pet: Pet }) {
                     onTake={() => setCameraFor(view)}
                     onChoose={() => void choose(view)}
                     onRetry={() => void retry(view)}
+                    retryWaiting={problem[view] === 'RATE_LIMITED' && cooldown.isWaiting(view)}
                     onTestPhoto={env.e2e ? () => void addTestPhoto(view) : undefined}
                   />
                 ))}

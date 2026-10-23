@@ -25,6 +25,8 @@ export type ViewTileProps = {
   onTake: () => void
   onChoose: () => void
   onRetry: () => void
+  /** The server said RATE_LIMITED a moment ago: "Try again" waits, and the tile says so. */
+  retryWaiting: boolean
   /** Set only in end-to-end builds, which show "Use test photo". */
   onTestPhoto: (() => void) | undefined
 }
@@ -67,6 +69,7 @@ export function ViewTile({
   onTake,
   onChoose,
   onRetry,
+  retryWaiting,
   onTestPhoto,
 }: ViewTileProps) {
   const { title, hint } = copy.views[view]
@@ -99,11 +102,12 @@ export function ViewTile({
         <View style={styles.body}>
           <Text style={styles.hint}>{hint}</Text>
           {problem === undefined ? null : <ProblemNote>{copy.problems[problem]}</ProblemNote>}
+          {retrying && retryWaiting ? <Text style={styles.hint}>{copy.retryWait}</Text> : null}
           {retrying ? (
             <Button
               variant="primary"
               label={copy.actions.retry}
-              disabled={busy}
+              disabled={busy || retryWaiting}
               onPress={onRetry}
             />
           ) : null}

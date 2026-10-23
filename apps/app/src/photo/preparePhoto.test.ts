@@ -269,6 +269,59 @@ describe('the real manipulator and decoder', () => {
     expect(result.blurScore).toBeGreaterThan(LIMITS.blurMin)
   })
 
+  it('releases the native image and context after the photo is made', async () => {
+    const release = { context: jest.fn(), image: jest.fn() }
+    jest.mocked(ImageManipulator.manipulate).mockImplementation((() => ({
+      release: release.context,
+      renderAsync: async () => ({
+        release: release.image,
+        saveAsync: async () => ({
+          uri: 'file:///out.jpg',
+          ...FIXTURE_SIZE,
+          base64: fixtureBase64('front'),
+        }),
+      }),
+    })) as never)
+
+    await preparePhoto('file:///front.jpg')
+
+    // One context and one image for the photo, and the same for its analysis copy.
+    expect(release.context).toHaveBeenCalledTimes(2)
+    expect(release.image).toHaveBeenCalledTimes(2)
+  })
+
+  it('releases the context when the image cannot be rendered', async () => {
+    const release = jest.fn()
+    jest.mocked(ImageManipulator.manipulate).mockImplementation((() => ({
+      release,
+      renderAsync: async () => {
+        throw new Error('corrupt image')
+      },
+    })) as never)
+
+    await expect(preparePhoto('file:///corrupt.jpg')).rejects.toThrow('corrupt image')
+
+    expect(release).toHaveBeenCalledTimes(1)
+  })
+
+  it('releases the context and the image when the image cannot be saved', async () => {
+    const release = { context: jest.fn(), image: jest.fn() }
+    jest.mocked(ImageManipulator.manipulate).mockImplementation((() => ({
+      release: release.context,
+      renderAsync: async () => ({
+        release: release.image,
+        saveAsync: async () => {
+          throw new Error('disk full')
+        },
+      }),
+    })) as never)
+
+    await expect(preparePhoto('file:///front.jpg')).rejects.toThrow('disk full')
+
+    expect(release.context).toHaveBeenCalledTimes(1)
+    expect(release.image).toHaveBeenCalledTimes(1)
+  })
+
   // Task 24 uploads these files too: they must keep their intended verdicts.
   it.each([
     ['front', { ok: true }],

@@ -32,6 +32,7 @@ import { fakeClient } from '../../testing/fakeClient'
 import { FIXTURE_SIZE, fixtureBase64, fixtureNamed, isFixture } from '../../testing/fixtures'
 import { TestProviders, testRootStackLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
+import { RATE_LIMITED_RETRY_DELAY_MS, useRetryCooldown } from './useRetryCooldown'
 
 jest.mock('@pawpin/api', () => ({
   ...jest.requireActual('@pawpin/api'),
@@ -722,19 +723,6 @@ describe('upload problems', () => {
     expect(uploadCall(1).id).toBe(uuid(2))
   })
 
-  it('shows the rate-limit message, and lets the same photo be sent again', async () => {
-    mockUploadPhoto.mockRejectedValueOnce(new AppError('RATE_LIMITED'))
-    libraryGives('front')
-    await openPhotos()
-
-    await pressButton('Choose from library')
-
-    expect(await screen.findByText('Take a short break and try again')).toBeOnTheScreen()
-    await pressButton('Try again')
-    expect(await screen.findByRole('radio', { name: 'Front photo, ready' })).toBeOnTheScreen()
-    expect(uploadCall(1).id).toBe(uuid(1))
-  })
-
   it('gives the quality guidance when the server refuses the photo, and asks for a new one', async () => {
     serverPhotos = [readyPhoto('front', uuid(50))]
     mockUploadPhoto.mockRejectedValueOnce(new AppError('PHOTO_QUALITY'))
@@ -880,6 +868,193 @@ describe('upload problems', () => {
 
     await waitFor(() => expect(mockListPhotos.mock.calls.length).toBeGreaterThanOrEqual(2))
     expect(queryClient?.getQueryData<PetPhoto[]>(['photos', PET_ID])).toEqual(serverPhotos)
+  })
+})
+
+/** The wait timers `setTimeout` has made so far, and whether `clearTimeout` has since cleared each. */
+function waitTimers(setTimeoutSpy: jest.SpyInstance, clearTimeoutSpy: jest.SpyInstance) {
+  const ids = setTimeoutSpy.mock.calls.flatMap((call, i) =>
+    call[1] === RATE_LIMITED_RETRY_DELAY_MS ? [setTimeoutSpy.mock.results[i]!.value] : [],
+  )
+  const cleared = new Set(clearTimeoutSpy.mock.calls.map((call) => call[0]))
+  return { ids, allCleared: ids.every((id) => cleared.has(id)) }
+}
+
+describe('after the server says RATE_LIMITED', () => {
+  const WAIT = 'You can try again in a minute.'
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+  })
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  /** Opens the screen and gets the front photo limited by the server. */
+  async function getRateLimited() {
+    mockUploadPhoto.mockRejectedValueOnce(new AppError('RATE_LIMITED'))
+    libraryGives('front')
+    await openPhotos()
+    await pressButton('Choose from library')
+    await screen.findByText('Take a short break and try again')
+  }
+
+  const advance = (ms: number) => act(async () => jest.advanceTimersByTime(ms))
+
+  it('says so, and keeps Try again off until the wait is over, then sends the same photo again', async () => {
+    await getRateLimited()
+
+    expect(screen.getByText(WAIT)).toBeOnTheScreen()
+    expect(button('Try again')).toBeDisabled()
+    // Only Try again waits: a different photo can be chosen at once.
+    expect(button('Choose from library')).toBeEnabled()
+
+    await advance(RATE_LIMITED_RETRY_DELAY_MS - 1)
+    expect(button('Try again')).toBeDisabled()
+    expect(screen.getByText(WAIT)).toBeOnTheScreen()
+
+    await advance(1)
+    expect(button('Try again')).toBeEnabled()
+    expect(screen.queryByText(WAIT)).toBeNull()
+    // The message about the limit stays until the photo is sent again.
+    expect(screen.getByText('Take a short break and try again')).toBeOnTheScreen()
+
+    await pressButton('Try again')
+
+    expect(await screen.findByRole('radio', { name: 'Front photo, ready' })).toBeOnTheScreen()
+    expect(mockUploadPhoto).toHaveBeenCalledTimes(2)
+    expect(uploadCall(1).id).toBe(uploadCall(0).id)
+    expect(isFixture(uploadCall(1).jpeg, 'front')).toBe(true)
+  })
+
+  it('waits again when the same photo is limited again', async () => {
+    mockUploadPhoto
+      .mockRejectedValueOnce(new AppError('RATE_LIMITED'))
+      .mockRejectedValueOnce(new AppError('RATE_LIMITED'))
+    libraryGives('front')
+    await openPhotos()
+    await pressButton('Choose from library')
+    await screen.findByText(WAIT)
+    await advance(RATE_LIMITED_RETRY_DELAY_MS)
+
+    await pressButton('Try again')
+
+    expect(await screen.findByText(WAIT)).toBeOnTheScreen()
+    expect(button('Try again')).toBeDisabled()
+    await advance(RATE_LIMITED_RETRY_DELAY_MS - 1)
+    expect(button('Try again')).toBeDisabled()
+    await advance(1)
+    expect(button('Try again')).toBeEnabled()
+    expect(mockUploadPhoto).toHaveBeenCalledTimes(2)
+    expect(uploadCall(1).id).toBe(uuid(1))
+  })
+
+  it('does not hold back the other tiles', async () => {
+    await getRateLimited()
+
+    await fireEvent.press(tile('Side photo, not added'))
+    expect(screen.queryByText(WAIT)).toBeNull()
+    libraryGives('side')
+    await pressButton('Choose from library')
+    expect(await screen.findByRole('radio', { name: 'Side photo, ready' })).toBeOnTheScreen()
+
+    // Front is still waiting.
+    await fireEvent.press(tile('Front photo, needs a new photo'))
+    expect(button('Try again')).toBeDisabled()
+    expect(screen.getByText(WAIT)).toBeOnTheScreen()
+  })
+
+  it('does not hold back other kinds of failure', async () => {
+    mockUploadPhoto.mockRejectedValueOnce(new AppError('NETWORK'))
+    libraryGives('front')
+    await openPhotos()
+
+    await pressButton('Choose from library')
+
+    await screen.findByText(OFFLINE)
+    expect(button('Try again')).toBeEnabled()
+    expect(screen.queryByText(WAIT)).toBeNull()
+  })
+
+  it('does not hold back a failure that comes after the wait', async () => {
+    await getRateLimited()
+    await advance(RATE_LIMITED_RETRY_DELAY_MS)
+    mockUploadPhoto.mockRejectedValueOnce(new AppError('NETWORK'))
+
+    await pressButton('Try again')
+
+    await screen.findByText(OFFLINE)
+    expect(button('Try again')).toBeEnabled()
+    expect(screen.queryByText(WAIT)).toBeNull()
+    // The first wait is long over, and a later timer does not bring the text back.
+    await advance(RATE_LIMITED_RETRY_DELAY_MS)
+    expect(screen.queryByText(WAIT)).toBeNull()
+  })
+
+  it('clears the wait timer when the screen is left', async () => {
+    mockUploadPhoto.mockRejectedValueOnce(new AppError('RATE_LIMITED'))
+    libraryGives('front')
+    await openPhotos()
+    // Rendering the router installs its own fake timers, so the spies come after it.
+    const setSpy = jest.spyOn(globalThis, 'setTimeout')
+    const clearSpy = jest.spyOn(globalThis, 'clearTimeout')
+    await pressButton('Choose from library')
+    await screen.findByText(WAIT)
+    expect(waitTimers(setSpy, clearSpy).ids).toHaveLength(1)
+    expect(waitTimers(setSpy, clearSpy).allCleared).toBe(false)
+
+    await screen.unmount()
+
+    expect(waitTimers(setSpy, clearSpy).allCleared).toBe(true)
+    setSpy.mockRestore()
+    clearSpy.mockRestore()
+  })
+})
+
+describe('useRetryCooldown', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+  })
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('waits for the delay per view, and restarts a wait that is started again', async () => {
+    const { result } = await renderHook(() => useRetryCooldown())
+    expect(result.current.isWaiting('front')).toBe(false)
+
+    await act(async () => result.current.start('front'))
+    await act(async () => jest.advanceTimersByTime(RATE_LIMITED_RETRY_DELAY_MS / 2))
+    await act(async () => result.current.start('front'))
+    await act(async () => result.current.start('side'))
+    expect(result.current.isWaiting('front')).toBe(true)
+    expect(result.current.isWaiting('side')).toBe(true)
+    expect(result.current.isWaiting('markings')).toBe(false)
+
+    // Half the delay after the second start of front: its first timer would have fired by now.
+    await act(async () => jest.advanceTimersByTime(RATE_LIMITED_RETRY_DELAY_MS / 2))
+    expect(result.current.isWaiting('front')).toBe(true)
+    await act(async () => jest.advanceTimersByTime(RATE_LIMITED_RETRY_DELAY_MS / 2))
+    expect(result.current.isWaiting('front')).toBe(false)
+    expect(result.current.isWaiting('side')).toBe(false)
+  })
+
+  it('clears its timers when it unmounts', async () => {
+    const setSpy = jest.spyOn(globalThis, 'setTimeout')
+    const clearSpy = jest.spyOn(globalThis, 'clearTimeout')
+    const { result, unmount } = await renderHook(() => useRetryCooldown())
+    await act(async () => {
+      result.current.start('front')
+      result.current.start('side')
+    })
+    expect(waitTimers(setSpy, clearSpy).ids).toHaveLength(2)
+    expect(waitTimers(setSpy, clearSpy).allCleared).toBe(false)
+
+    await unmount()
+
+    expect(waitTimers(setSpy, clearSpy).allCleared).toBe(true)
+    setSpy.mockRestore()
+    clearSpy.mockRestore()
   })
 })
 
