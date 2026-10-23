@@ -86,6 +86,83 @@ describe('followConnection', () => {
   })
 })
 
+describe('followConnection in a browser', () => {
+  // Chromium's offline mode (DevTools, Playwright's setOffline) changes `navigator.onLine` and
+  // fires the window's `offline` and `online` events, but not the `navigator.connection` change
+  // event, the only one NetInfo's web module listens to in a browser that has that API.
+  const target = new EventTarget()
+  const addListener = jest.fn(target.addEventListener.bind(target))
+  let onLine = true
+  let os: ReturnType<typeof jest.replaceProperty>
+  const own = ['addEventListener', 'removeEventListener', 'navigator'] as const
+  const saved = own.map((name) => Object.getOwnPropertyDescriptor(window, name))
+
+  beforeEach(() => {
+    addListener.mockClear()
+    os = jest.replaceProperty(Platform, 'OS', 'web')
+    Object.defineProperties(window, {
+      addEventListener: { configurable: true, value: addListener },
+      removeEventListener: { configurable: true, value: target.removeEventListener.bind(target) },
+      navigator: {
+        configurable: true,
+        value: {
+          get onLine() {
+            return onLine
+          },
+        },
+      },
+    })
+  })
+
+  afterEach(() => {
+    os.restore()
+    own.forEach((name, index) => {
+      const descriptor = saved[index]
+      if (descriptor === undefined) delete (window as unknown as Record<string, unknown>)[name]
+      else Object.defineProperty(window, name, descriptor)
+    })
+    onLine = true
+  })
+
+  const browser = (online: boolean) => {
+    onLine = online
+    target.dispatchEvent(new Event(online ? 'online' : 'offline'))
+  }
+
+  it('follows the browser going offline and coming back', () => {
+    const stop = followConnection()
+    const listening = onlineManager.subscribe(() => undefined)
+
+    browser(false)
+    expect(onlineManager.isOnline()).toBe(false)
+    browser(true)
+    expect(onlineManager.isOnline()).toBe(true)
+
+    listening()
+    stop()
+  })
+
+  it('stops following the browser with nothing listening', () => {
+    const stop = followConnection()
+    onlineManager.subscribe(() => undefined)()
+
+    browser(false)
+
+    expect(onlineManager.isOnline()).toBe(true)
+    stop()
+  })
+
+  it('leaves iOS to NetInfo alone', () => {
+    os.restore()
+    const stop = followConnection()
+    const listening = onlineManager.subscribe(() => undefined)
+
+    expect(addListener).not.toHaveBeenCalled()
+    listening()
+    stop()
+  })
+})
+
 function Status() {
   return <Text>{useOnline() ? 'online' : 'offline'}</Text>
 }
