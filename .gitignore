@@ -5,3 +5,5 @@ node_modules
 dist
 supabase/.temp
 .env*
+!.env.example
+expo-env.d.ts
