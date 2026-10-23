@@ -11,10 +11,12 @@
     "lint": "eslint .",
     "test": "pnpm -r test",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
-    "gen:tokens": "node tools/tokens/build-tokens.ts"
+    "gen:tokens": "node tools/tokens/build-tokens.ts",
+    "gen:stickers": "svgr --native --typescript --svgo-config tools/stickers/svgo.config.json --out-dir packages/ui/src/stickers/generated packages/ui/assets/stickers"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@svgr/cli": "8.1.0",
     "@types/node": "^24.19.2",
     "eslint": "^10.13.0",
     "prettier": "^3.9.10",
