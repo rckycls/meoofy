@@ -11,6 +11,8 @@ export type { Entitlement, Profile } from './types'
 export {
   checkSession,
   deleteAccount,
+  forgetSession,
+  onSessionForgotten,
   readStoredSession,
   sendEmailCode,
   signInWithAppleIdToken,

@@ -83,6 +83,21 @@ describe('readStoredSession', () => {
     await expect(readStoredSession(clientWith({}))).resolves.toBeNull()
   })
 
+  it('is null for a partial session, which supabase-js would not load either', async () => {
+    vi.stubGlobal('fetch', vi.fn(offline))
+    const later = Math.floor(Date.now() / 1000) + ONE_HOUR
+    const user = { id: USER_ID }
+    const partial = [
+      { refresh_token: 'r', expires_at: later, user },
+      { access_token: 'a', refresh_token: 'r', user },
+      { access_token: 'a', expires_at: later, user },
+    ]
+    for (const value of partial) {
+      const client = clientWith({ [KEY]: JSON.stringify(value) })
+      await expect(readStoredSession(client)).resolves.toBeNull()
+    }
+  })
+
   it('is null, and never rejects, for a stored value it cannot read', async () => {
     vi.stubGlobal('fetch', vi.fn(offline))
     const unreadable = [

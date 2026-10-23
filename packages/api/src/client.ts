@@ -26,16 +26,19 @@ export type PawpinClientOptions = {
   detectSessionInUrl?: boolean
 }
 
-/** Reads a stored session back: the iOS secure store, or the browser's localStorage. */
-type SessionReader = { getItem(key: string): string | null | Promise<string | null> }
+/** Where a stored session is read back and forgotten: the iOS secure store, or localStorage. */
+type SessionStore = {
+  getItem(key: string): string | null | Promise<string | null>
+  removeItem(key: string): void | Promise<void>
+}
 
-/** Where each client made here keeps its session, so `readStoredSession` can read it back. */
-const sessionStores = new WeakMap<PawpinClient, { storage: SessionReader; key: string }>()
+/** Where each client made here keeps its session, so this package can read or forget it. */
+const sessionStores = new WeakMap<PawpinClient, { storage: SessionStore; key: string }>()
 
 /** Where a client made by `createPawpinClient` keeps its session; `undefined` for any other. */
 export function sessionStoreOf(
   c: PawpinClient,
-): { storage: SessionReader; key: string } | undefined {
+): { storage: SessionStore; key: string } | undefined {
   return sessionStores.get(c)
 }
 
@@ -44,9 +47,9 @@ export function sessionStoreOf(
  * one it may use. Without it (server rendering, a blocked localStorage) the session lives in
  * memory and nothing can be read back.
  */
-function browserStorage(): SessionReader | undefined {
+function browserStorage(): SessionStore | undefined {
   const { window, document } = globalThis as {
-    window?: { localStorage?: SessionReader }
+    window?: { localStorage?: SessionStore }
     document?: unknown
   }
   if (window === undefined || document === undefined) return undefined

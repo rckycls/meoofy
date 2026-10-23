@@ -126,10 +126,12 @@ export async function readStoredSession(c: PawpinClient): Promise<StoredSession 
     const raw = await store.storage.getItem(store.key)
     if (raw === null) return null
     const session: unknown = JSON.parse(raw)
-    // The fields supabase-js needs to refresh a session, and the user it belongs to.
+    // What supabase-js needs to load a session at all (its `_isValidSession`), and the user.
     if (!isRecord(session) || !isRecord(session.user)) return null
-    const { refresh_token: refreshToken, user } = session
-    if (typeof refreshToken !== 'string' || refreshToken === '') return null
+    if (!('access_token' in session && 'refresh_token' in session && 'expires_at' in session)) {
+      return null
+    }
+    const { user } = session
     if (typeof user.id !== 'string' || user.id === '') return null
     return { userId: user.id, email: typeof user.email === 'string' ? user.email : null }
   } catch {
@@ -138,17 +140,56 @@ export async function readStoredSession(c: PawpinClient): Promise<StoredSession 
   }
 }
 
+const forgetListeners = new WeakMap<PawpinClient, Set<() => void>>()
+
 /**
- * Signs out on this device: revokes this session and forgets it. The session is forgotten even
- * when this rejects (for example offline), so the caller can treat the user as signed out.
+ * Calls `listener` when this package forgets the client's session itself (`forgetSession`, or a
+ * `signOut` that needed it). supabase-js reports no auth event then, so whoever follows the auth
+ * state treats this as a sign-out. Returns the way to stop.
  */
-export async function signOut(c: PawpinClient): Promise<void> {
+export function onSessionForgotten(c: PawpinClient, listener: () => void): () => void {
+  const listeners = forgetListeners.get(c) ?? new Set<() => void>()
+  forgetListeners.set(c, listeners)
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+/**
+ * Signs out on this device without asking Auth: deletes the stored session at once and tells the
+ * `onSessionForgotten` listeners. For when Auth can't be reached: supabase-js would first retry
+ * refreshing an expired session (about 25 s offline) and then keep it. The refresh token is not
+ * revoked on the server, but it no longer exists on this device, and a refresh already under way
+ * is discarded by supabase-js because the stored session changed under it. Rejects with an
+ * AppError only when the storage can't be written.
+ */
+export async function forgetSession(c: PawpinClient): Promise<void> {
+  const store = sessionStoreOf(c)
   try {
-    const { error } = await c.auth.signOut({ scope: 'local' })
-    if (error) throw error
+    await store?.storage.removeItem(store.key)
   } catch (e) {
     throw toAppError(e)
   }
+  forgetListeners.get(c)?.forEach((listener) => listener())
+}
+
+/**
+ * Signs out on this device: revokes this session with Auth and forgets it. Resolves once the
+ * session is gone from the device, whether or not Auth could be told; rejects with an AppError
+ * only when it can't be forgotten.
+ *
+ * supabase-js forgets the session itself, even when the revoke request fails, except when it
+ * can't load it: an expired access token whose refresh fails (offline, Auth down) makes it return
+ * that error and keep the session, which would reopen the next start and refresh into a full
+ * session once Auth is back. Then `forgetSession` forgets it.
+ */
+export async function signOut(c: PawpinClient): Promise<void> {
+  const failed = await c.auth.signOut({ scope: 'local' }).then(
+    ({ error }) => error !== null,
+    () => true,
+  )
+  if (failed) await forgetSession(c)
 }
 
 /** The `{"error":"PAWPIN:<CODE>"}` body the Edge Functions answer with, plus the status. */
@@ -177,11 +218,7 @@ export async function deleteAccount(c: PawpinClient): Promise<void> {
   } catch (e) {
     throw toAppError(e)
   }
-  try {
-    // The account is gone; drop its session on this device. Nothing on the server depends on
-    // this succeeding, so a failure here does not fail the deletion.
-    await c.auth.signOut({ scope: 'local' })
-  } catch {
-    // ignored, see above
-  }
+  // The account is gone; drop its session on this device. Nothing on the server depends on this
+  // succeeding, so a failure here does not fail the deletion.
+  await signOut(c).catch(() => undefined)
 }
