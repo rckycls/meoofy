@@ -1,2 +1,7 @@
 .worktrees/
 .superpowers/
+node_modules
+.expo
+dist
+supabase/.temp
+.env*

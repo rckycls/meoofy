@@ -1,0 +1,7 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 11 reads pnpm-specific settings from this file, not .npmrc.
+# .npmrc keeps the same value for tools that still look there.
+nodeLinker: hoisted
