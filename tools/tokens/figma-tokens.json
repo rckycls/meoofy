@@ -1,0 +1,109 @@
+{
+  "Color/Amber": "#896341",
+  "Color/Blush": "#FFF2AE",
+  "Color/Coral": "#183B73",
+  "Color/Green": "#2858C8",
+  "Color/Ivory": "#F8FBFF",
+  "Color/Line": "#D9E3F0",
+  "Color/Mint": "#DCEEFF",
+  "Color/Muted": "#465268",
+  "Color/Navy": "#183B73",
+  "Color/Sand": "#D7B589",
+  "Color/Teal": "#2858C8",
+  "Color/White": "#FFFFFF",
+  "Motion/Distance/Float": {
+    "value": 10,
+    "unit": "px"
+  },
+  "Motion/Duration/Base": {
+    "value": 240,
+    "unit": "px"
+  },
+  "Motion/Duration/Burst": {
+    "value": 900,
+    "unit": "px"
+  },
+  "Motion/Duration/Fast": {
+    "value": 160,
+    "unit": "px"
+  },
+  "Motion/Duration/Float loop": {
+    "value": 3200,
+    "unit": "px"
+  },
+  "Motion/Duration/Gentle": {
+    "value": 420,
+    "unit": "px"
+  },
+  "Motion/Duration/Instant": {
+    "value": 80,
+    "unit": "px"
+  },
+  "Motion/Duration/Twinkle": {
+    "value": 1600,
+    "unit": "px"
+  },
+  "Motion/Easing/Burst": "cubic-bezier(0.16, 1, 0.3, 1)",
+  "Motion/Easing/Exit": "cubic-bezier(0.4, 0, 1, 1)",
+  "Motion/Easing/Float": "cubic-bezier(0.45, 0, 0.55, 1)",
+  "Motion/Easing/Peel": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+  "Motion/Easing/Standard": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+  "Motion/Stagger/Float": {
+    "value": 400,
+    "unit": "px"
+  },
+  "Motion/Stagger/Trail": {
+    "value": 120,
+    "unit": "px"
+  },
+  "Motion/Tilt/Max": {
+    "value": 12,
+    "unit": "px"
+  },
+  "Palette/Blush": "#FFB3C6",
+  "Palette/Cloud": "#F8FBFF",
+  "Palette/Cobalt": "#2858C8",
+  "Palette/Cocoa": "#896341",
+  "Palette/Deep Blue": "#183B73",
+  "Palette/Ember": "#A04E1C",
+  "Palette/Ink": "#1D2A3A",
+  "Palette/Iris": "#5B4FC9",
+  "Palette/Lavender": "#E6E1FF",
+  "Palette/Leaf": "#1C7055",
+  "Palette/Mint": "#D9F5EA",
+  "Palette/Mist Gray": "#E8EDF4",
+  "Palette/Moon Yellow": "#FFD95A",
+  "Palette/Peach": "#FFE4CF",
+  "Palette/Petal": "#FFE3EC",
+  "Palette/Rose": "#B03562",
+  "Palette/Sand": "#D7B589",
+  "Palette/Sky": "#74C3FF",
+  "Palette/Slate": "#465268",
+  "Palette/Soft Yellow": "#FFF2AE",
+  "Palette/Twilight": "#6E8FE8",
+  "Palette/White": "#FFFFFF",
+  "Space/16": {
+    "value": 16,
+    "unit": "px"
+  },
+  "Space/24": {
+    "value": 24,
+    "unit": "px"
+  },
+  "Space/32": {
+    "value": 32,
+    "unit": "px"
+  },
+  "Space/48": {
+    "value": 48,
+    "unit": "px"
+  },
+  "Space/64": {
+    "value": 64,
+    "unit": "px"
+  },
+  "Space/8": {
+    "value": 8,
+    "unit": "px"
+  }
+}
