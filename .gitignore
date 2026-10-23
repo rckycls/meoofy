@@ -7,3 +7,7 @@ supabase/.temp
 .env*
 !.env.example
 expo-env.d.ts
+
+# Continuous Native Generation: EAS prebuilds the native projects, nothing native is committed.
+apps/app/ios/
+apps/app/android/
