@@ -15,6 +15,11 @@ export type PawpinClientOptions = {
   url: string
   anonKey: string
   storage?: SessionStorage
+  /**
+   * Read a session from the URL the page was opened with. The web build needs it to finish Sign
+   * in with Apple, which redirects back with the session; leave it off everywhere else.
+   */
+  detectSessionInUrl?: boolean
 }
 
 export function createPawpinClient(opts: PawpinClientOptions): PawpinClient {
@@ -26,8 +31,9 @@ export function createPawpinClient(opts: PawpinClientOptions): PawpinClient {
       ...(opts.storage !== undefined && { storage: opts.storage }),
       persistSession: true,
       autoRefreshToken: true,
-      // Sign-in is by email code or Apple id token, never a redirect back with tokens in the URL.
-      detectSessionInUrl: false,
+      // Email code and Apple id token sign-in never redirect back with tokens in the URL; only
+      // the web's Apple redirect does, and it asks for this.
+      detectSessionInUrl: opts.detectSessionInUrl ?? false,
     },
   })
 }

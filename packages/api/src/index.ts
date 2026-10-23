@@ -13,6 +13,7 @@ export {
   deleteAccount,
   sendEmailCode,
   signInWithAppleIdToken,
+  signInWithAppleWeb,
   signOut,
   verifyEmailCode,
   type SessionCheck,

@@ -31,6 +31,8 @@ function createClient(): PawpinClient {
     url: env.supabaseUrl,
     anonKey: env.supabaseAnonKey,
     storage: sessionStorageFor(Platform.OS),
+    // Sign in with Apple on the web returns to the app with the session in the URL.
+    detectSessionInUrl: Platform.OS === 'web',
   })
 }
 

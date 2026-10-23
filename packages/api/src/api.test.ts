@@ -1,6 +1,7 @@
 // Every exported function rejects with an AppError only, whatever supabase-js hands back.
 import { AppError, type OnboardingPath } from '@pawpin/core'
-import { describe, expect, it, vi } from 'vitest'
+import { AuthApiError, AuthRetryableFetchError, type OAuthResponse } from '@supabase/supabase-js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   completeOnboarding,
   createPet,
@@ -14,6 +15,7 @@ import {
   listPhotos,
   sendEmailCode,
   signInWithAppleIdToken,
+  signInWithAppleWeb,
   signOut,
   updateDisplayName,
   updatePet,
@@ -178,5 +180,68 @@ describe('signOut', () => {
   it('resolves without a session (nothing to revoke)', async () => {
     const fetch = vi.fn(offline)
     await expect(signOut(stubClient(fetch))).resolves.toBeUndefined()
+  })
+})
+
+describe('signInWithAppleWeb', () => {
+  const redirect: OAuthResponse = {
+    data: { provider: 'apple', url: 'https://appleid.example/authorize' },
+    error: null,
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('sends the browser to Apple through Supabase and back to the page it came from', async () => {
+    vi.stubGlobal('location', { origin: 'https://app.pawpin.test' })
+    const client = stubClient(vi.fn(offline))
+    const oauth = vi.spyOn(client.auth, 'signInWithOAuth').mockResolvedValue(redirect)
+
+    await expect(signInWithAppleWeb(client)).resolves.toBeUndefined()
+    expect(oauth).toHaveBeenCalledWith({
+      provider: 'apple',
+      options: { redirectTo: 'https://app.pawpin.test/' },
+    })
+  })
+
+  it('leaves the return address to the project when there is no page to come back to', async () => {
+    const client = stubClient(vi.fn(offline))
+    const oauth = vi.spyOn(client.auth, 'signInWithOAuth').mockResolvedValue(redirect)
+
+    await signInWithAppleWeb(client)
+    expect(oauth).toHaveBeenCalledWith({ provider: 'apple', options: {} })
+  })
+
+  it('makes no request of its own: the browser does the redirect', async () => {
+    const fetch = vi.fn(offline)
+    await expect(signInWithAppleWeb(stubClient(fetch))).resolves.toBeUndefined()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects with an AppError when Supabase refuses', async () => {
+    const client = stubClient(vi.fn(offline))
+    const refusal = new AuthApiError(
+      'Unsupported provider: provider is not enabled',
+      400,
+      'validation_failed',
+    )
+    vi.spyOn(client.auth, 'signInWithOAuth').mockResolvedValue({
+      data: { provider: 'apple', url: null },
+      error: refusal,
+    })
+
+    const error = await signInWithAppleWeb(client).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(AppError)
+  })
+
+  it('rejects with a retryable NETWORK AppError when Auth cannot be reached', async () => {
+    const client = stubClient(vi.fn(offline))
+    vi.spyOn(client.auth, 'signInWithOAuth').mockResolvedValue({
+      data: { provider: 'apple', url: null },
+      error: new AuthRetryableFetchError('fetch failed', 0),
+    })
+
+    const error = await signInWithAppleWeb(client).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(AppError)
+    expect(error).toMatchObject({ code: 'NETWORK', retryable: true })
   })
 })

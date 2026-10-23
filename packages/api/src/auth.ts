@@ -49,6 +49,26 @@ export async function signInWithAppleIdToken(
 }
 
 /**
+ * Starts Sign in with Apple on the web. Supabase sends the browser to Apple and back to this
+ * page's origin with a session (the client reads it from the URL, see `detectSessionInUrl`), so
+ * this resolves just before the browser leaves and nothing after it runs on the old page. Native
+ * iOS uses `signInWithAppleIdToken` instead. The origin must be one of the project's allowed
+ * redirect URLs.
+ */
+export async function signInWithAppleWeb(c: PawpinClient): Promise<void> {
+  try {
+    const origin = (globalThis as { location?: { origin?: string } }).location?.origin
+    const { error } = await c.auth.signInWithOAuth({
+      provider: 'apple',
+      options: origin === undefined ? {} : { redirectTo: `${origin}/` },
+    })
+    if (error) throw error
+  } catch (e) {
+    throw toAppError(e)
+  }
+}
+
+/**
  * What Auth says about this device's session:
  * - `valid`: it refreshed, so the session works (for example the access token had expired, or the
  *   device clock is off);
