@@ -175,7 +175,7 @@ describe('Compare plans', () => {
       'column',
     )
 
-    setWindowWidth(1440, 1000)
+    await act(async () => setWindowWidth(1440, 1000))
     await waitFor(() =>
       expect(StyleSheet.flatten(screen.getByTestId('plans-tiers').props.style).flexDirection).toBe(
         'row',

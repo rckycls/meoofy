@@ -61,13 +61,14 @@ function routes(client: ReturnType<typeof fakeClient>['client'], realTabs: boole
     '(onboarding)/privacy': Privacy,
     '(onboarding)/all-set': AllSet,
     '(auth)/sign-in': stub('Sign-in screen'),
-    // The real tab layout only knows the tabs that exist so far (Find, Alerts),
-    // so it is used just where the layout itself is under test.
+    // The real tab layout declares all four tabs, so each needs a route (Home is below);
+    // it is used just where the layout itself is under test.
     ...(realTabs
       ? {
           '(tabs)/_layout': TabsLayout,
           '(tabs)/find': FindTab,
           '(tabs)/alerts': stub('Alerts screen'),
+          '(tabs)/account': stub('Account screen'),
         }
       : { '(tabs)/find': stub('Find screen') }),
     '(tabs)/home': stub('Home screen'),

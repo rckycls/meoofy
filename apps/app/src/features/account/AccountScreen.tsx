@@ -46,7 +46,6 @@ export function AccountScreen() {
     setProblem(null)
     setDeleting(true)
     try {
-      // Also ends the session on this device.
       await deleteAccount(client)
     } catch (e) {
       const error = parseAppError(e)
@@ -59,8 +58,10 @@ export function AccountScreen() {
       }
       // A repeated delete after one that went through: the account and its session are gone
       // already (the server answers 401). That is the result the person asked for.
-      await signOut(client).catch(() => undefined)
     }
+    // The account is gone. `deleteAccount` signs out on a best-effort basis, so make sure no
+    // session is left on this device; if that fails there is nothing more the person can do.
+    await signOut(client).catch(() => undefined)
     // Nothing of the old account is left to show, on screen or in the saved cache.
     queryClient.clear()
     router.replace('/(auth)/sign-in')
@@ -143,18 +144,20 @@ export function AccountScreen() {
                 <Text style={[styles.dialogBody, { color: cardRoles.warning.body }]}>
                   {copy.deleteDialog.body}
                 </Text>
+                {/* Cancel comes first: the web focus trap puts focus on the first control, and a
+                    key press right after the dialog opens must not delete the account. */}
                 <View style={styles.actions}>
-                  <Button
-                    variant="urgent"
-                    label={copy.deleteDialog.confirm}
-                    loading={deleting}
-                    onPress={() => void deleteNow()}
-                  />
                   <Button
                     variant="secondary"
                     label={copy.deleteDialog.cancel}
                     disabled={deleting}
                     onPress={closeDialog}
+                  />
+                  <Button
+                    variant="urgent"
+                    label={copy.deleteDialog.confirm}
+                    loading={deleting}
+                    onPress={() => void deleteNow()}
                   />
                 </View>
               </Card>

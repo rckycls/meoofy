@@ -62,6 +62,8 @@ async function open(email: string | null = 'alex@example.com') {
       _layout: testRootStackLayout(fake.client),
       '(tabs)/_layout': TabsLayout,
       '(tabs)/home': stub('Home screen'),
+      '(tabs)/find': stub('Find screen'),
+      '(tabs)/alerts': stub('Alerts screen'),
       '(tabs)/account': AccountWithCache,
       '(auth)/_layout': AuthLayout,
       '(auth)/sign-in': stub('Sign-in screen'),
@@ -91,6 +93,26 @@ const cacheIsEmpty = () =>
 
 const CONFIRM = 'Yes, delete my account'
 
+/**
+ * Two presses before React can re-render in between, so only the screen's ref guard (not a button
+ * it has already disabled) can stop the second. Doing that overlaps two `act` scopes, which React
+ * reports on the console; that one message is swallowed and anything else still shows.
+ */
+async function pressTwiceInOneTick(button: ReturnType<typeof screen.getByRole>) {
+  const report = console.error.bind(console)
+  const spy = jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+    if (!String(args[0]).includes('overlapping act() calls')) report(...args)
+  })
+  try {
+    await act(async () => {
+      void fireEvent.press(button)
+      void fireEvent.press(button)
+    })
+  } finally {
+    spy.mockRestore()
+  }
+}
+
 beforeEach(async () => {
   await AsyncStorage.clear()
   serverProfile = alex
@@ -99,7 +121,10 @@ beforeEach(async () => {
     serverProfile = { ...serverProfile, displayName: name.trim() }
   })
   mockDeleteAccount.mockReset().mockResolvedValue(undefined)
-  mockSignOut.mockClear()
+  // Back to the real sign-out (which ends the fake session), dropping any one-off behaviour.
+  mockSignOut
+    .mockReset()
+    .mockImplementation(jest.requireActual<typeof import('@pawpin/api')>('@pawpin/api').signOut)
 })
 
 const initialWindow = Dimensions.get('window')
@@ -199,10 +224,7 @@ describe('Sign out', () => {
     await screen.findByText('Alex')
     const button = screen.getByRole('button', { name: 'Sign out' })
 
-    await act(async () => {
-      void fireEvent.press(button)
-      void fireEvent.press(button)
-    })
+    await pressTwiceInOneTick(button)
 
     expect(mockSignOut).toHaveBeenCalledTimes(1)
   })
@@ -252,6 +274,18 @@ describe('Delete account', () => {
     expect(StyleSheet.flatten(confirm.props.style).minHeight).toBeGreaterThanOrEqual(44)
   })
 
+  it('puts Cancel first, so the focus the dialog takes on opening is on the safe choice', async () => {
+    await open()
+
+    const dialog = await openDeleteDialog()
+
+    // rn-web's modal focus trap focuses the first focusable element in tree order when the
+    // dialog opens, so a keyboard user who presses Enter straight away must hit Cancel.
+    const [first, second] = within(dialog).getAllByRole('button')
+    expect(within(first).getByText('Cancel')).toBeOnTheScreen()
+    expect(within(second).getByText(CONFIRM)).toBeOnTheScreen()
+  })
+
   it('closes on Cancel without deleting', async () => {
     await open()
     const dialog = await openDeleteDialog()
@@ -263,7 +297,10 @@ describe('Delete account', () => {
     expect(screen.getByRole('button', { name: 'Delete account' })).toBeOnTheScreen()
   })
 
-  it('deletes on confirmation, clears the query cache and goes to sign-in', async () => {
+  it('deletes on confirmation, signs out here, clears the query cache and goes to sign-in', async () => {
+    // Neither mocked call ends the session, so only the screen's own sign-out and clear can
+    // have emptied the cache, and only its own navigation can have left the tabs.
+    mockSignOut.mockResolvedValueOnce(undefined)
     const router = await open()
     const dialog = await openDeleteDialog()
     seedCache()
@@ -274,10 +311,25 @@ describe('Delete account', () => {
     await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalledWith(fake.client))
     expect(await screen.findByText('Sign-in screen')).toBeOnTheScreen()
     expect(router.getPathname()).toBe('/sign-in')
-    // The session is still open here (the mocked call does not end it), so only the
-    // screen's own clear can have emptied the cache.
-    expect(fake.auth.signOut).not.toHaveBeenCalled()
+    expect(mockSignOut).toHaveBeenCalledWith(fake.client)
     expect(cacheIsEmpty()).toBe(true)
+  })
+
+  it('still clears and goes to sign-in when the local sign-out after a deletion fails', async () => {
+    // deleteAccount signs out on a best-effort basis, so the screen makes sure of it too; a
+    // sign-out that fails must not keep a deleted account's person on its screens.
+    mockSignOut.mockRejectedValueOnce(new AppError('UNKNOWN'))
+    const router = await open()
+    const dialog = await openDeleteDialog()
+    seedCache()
+
+    await fireEvent.press(within(dialog).getByRole('button', { name: CONFIRM }))
+
+    expect(await screen.findByText('Sign-in screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/sign-in')
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
+    expect(cacheIsEmpty()).toBe(true)
+    expect(screen.queryByText(/couldn’t delete/)).toBeNull()
   })
 
   it('treats an UNAUTHENTICATED answer as a deletion that already happened', async () => {
@@ -290,6 +342,7 @@ describe('Delete account', () => {
     await fireEvent.press(within(dialog).getByRole('button', { name: CONFIRM }))
 
     expect(await screen.findByText('Sign-in screen')).toBeOnTheScreen()
+    expect(mockSignOut).toHaveBeenCalledTimes(1)
     expect(mockSignOut).toHaveBeenCalledWith(fake.client)
     expect(fake.auth.signOut).toHaveBeenCalledWith({ scope: 'local' })
     expect(router.getPathname()).toBe('/sign-in')
@@ -340,11 +393,7 @@ describe('Delete account', () => {
     const dialog = await openDeleteDialog()
     const confirm = within(dialog).getByRole('button', { name: CONFIRM })
 
-    // Two presses in the same tick, before the screen has re-rendered.
-    await act(async () => {
-      void fireEvent.press(confirm)
-      void fireEvent.press(confirm)
-    })
+    await pressTwiceInOneTick(confirm)
 
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1)
   })
