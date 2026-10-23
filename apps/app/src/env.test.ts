@@ -32,6 +32,24 @@ describe('readEnv', () => {
     expect(readEnv(base).supportEmail).toBeNull()
   })
 
+  it('keeps the support address only when it is a plain address, so a mailto: link cannot carry more', () => {
+    for (const bad of [
+      'help me@pawpin.example',
+      'help@pawpin.example?subject=hi',
+      'help@pawpin.example&cc=other@pawpin.example',
+      'help@pawpin.example,other@pawpin.example',
+      'mailto:help@pawpin.example',
+      'help@pawpin',
+      'not an address',
+      '@pawpin.example',
+    ]) {
+      expect(readEnv({ ...base, EXPO_PUBLIC_SUPPORT_EMAIL: bad }).supportEmail).toBeNull()
+    }
+    expect(
+      readEnv({ ...base, EXPO_PUBLIC_SUPPORT_EMAIL: 'help+pilot@pawpin.example' }).supportEmail,
+    ).toBe('help+pilot@pawpin.example')
+  })
+
   it("turns the end-to-end seams on only for '1'", () => {
     expect(readEnv({ ...base, EXPO_PUBLIC_E2E: '1' }).e2e).toBe(true)
     expect(readEnv({ ...base, EXPO_PUBLIC_E2E: 'true' }).e2e).toBe(false)

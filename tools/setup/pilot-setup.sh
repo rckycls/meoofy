@@ -591,7 +591,9 @@ open_url "$DASH/settings/api-keys"
 step "On API Keys (Legacy tab) reveal the service_role key and copy it. Do not paste it anywhere else."
 step "In the SQL Editor run this, with the key between the quotes:"
 show_block "select vault.create_secret('<paste the service_role key here>', 'service_role_key');"
-note "To change a value later: select vault.update_secret(id, 'new value') with the id from vault.secrets."
+note "Running this stage again? create_secret fails when the name already exists (names are unique)."
+note "To change a value, use update_secret instead, once per secret (project_url or service_role_key):"
+show_block "select vault.update_secret(id, 'the new value') from vault.secrets where name = 'service_role_key';"
 pause "Both secrets created? Press Enter."
 say "After the next 5-minute tick, check the job got through (status_code 200, not 401):"
 show_block "select status_code, left(content, 100) as content, created from net._http_response order by created desc limit 5;"
@@ -700,10 +702,19 @@ if (( RAN_OK == 0 )); then
 fi
 offer_run apps/app "Create or link the EAS project for this app." eas init
 printf '\n'
-say "If 'eas init' says it cannot write to a dynamic config, add the project id it printed to"
-say "apps/app/app.config.ts yourself, and commit it (a project id is not a secret):"
-show_block "extra: { eas: { projectId: '<the id from eas init>' } },"
-pause "Project linked? Press Enter."
+say "EAS builds and deploys need the project id inside apps/app/app.config.ts."
+if ! grep -qE "projectId[[:space:]]*:" apps/app/app.config.ts; then
+  warn "apps/app/app.config.ts has no projectId yet."
+  say "'eas init' cannot edit a dynamic config, so add this inside the config object, and commit it"
+  say "(a project id is not a secret):"
+  show_block "extra: { eas: { projectId: '<the id eas init printed>' } },"
+  note "If the Expo account is an organisation, also add  owner: '<organisation name>'."
+fi
+pause "Project linked, and projectId added if it was missing? Press Enter."
+if ! grep -qE "projectId[[:space:]]*:" apps/app/app.config.ts; then
+  warn "Still no projectId in apps/app/app.config.ts: EAS builds and deploys will fail until it is there."
+  SKIPPED+=("add extra.eas.projectId (from eas init) to apps/app/app.config.ts and commit it")
+fi
 
 env_names=(EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY)
 env_values=("$EXPO_PUBLIC_SUPABASE_URL" "$EXPO_PUBLIC_SUPABASE_ANON_KEY")
@@ -714,24 +725,12 @@ if [[ -n "${EXPO_PUBLIC_SENTRY_DSN:-}" ]]; then
   env_names+=(EXPO_PUBLIC_SENTRY_DSN SENTRY_ORG SENTRY_PROJECT)
   env_values+=("$EXPO_PUBLIC_SENTRY_DSN" "$SENTRY_ORG" "$SENTRY_PROJECT")
 fi
-say "These set the EAS variables for the production and preview environments, one command each:"
+say "These set the EAS variables for the production and preview environments. You are asked"
+say "about each command in turn."
 for i in "${!env_names[@]}"; do
   _eas_env_args "${env_names[$i]}" "${env_values[$i]}" plaintext
-  _show_cmd apps/app "$(_cmdline "${EAS_ARGS[@]}")"
+  offer_run apps/app "Set ${env_names[$i]} (a public value, stored as plaintext)." "${EAS_ARGS[@]}"
 done
-if confirm "Run all ${#env_names[@]} commands now?"; then
-  for i in "${!env_names[@]}"; do
-    _eas_env_args "${env_names[$i]}" "${env_values[$i]}" plaintext
-    rc=0
-    ( cd apps/app && "${EAS_ARGS[@]}" ) || rc=$?
-    if (( rc != 0 )); then
-      warn "Setting ${env_names[$i]} failed (status $rc)."
-      SKIPPED+=("set the EAS variable ${env_names[$i]} (production and preview, plaintext)")
-    fi
-  done
-else
-  SKIPPED+=("set these EAS variables for production and preview, plaintext: ${env_names[*]}")
-fi
 if [[ -n "${EXPO_PUBLIC_SENTRY_DSN:-}" ]]; then
   offer_run apps/app "Set the Sentry auth token as a secret. EAS asks you for the value; paste the token there." \
     eas "$EAS_ENV_VERB" --name SENTRY_AUTH_TOKEN --environment production --environment preview --visibility secret
@@ -740,23 +739,56 @@ pause "Press Enter to continue."
 
 # ── 16 ────────────────────────────────────────────────────────────────────
 stage "Deploy the web app"
-say "This builds the static web app with the production variables and uploads it to EAS Hosting."
-if grep -qsE "^[[:space:]]*EXPO_PUBLIC_E2E=[\"']?1" apps/app/.env apps/app/.env.local 2>/dev/null || [[ "${EXPO_PUBLIC_E2E:-}" == "1" ]]; then
-  warn "EXPO_PUBLIC_E2E=1 is set (in your shell or in apps/app/.env). It would put the test-photo"
-  warn "button in the hosted app. Remove it and run this wizard again."
-  exit 1
-fi
-note "apps/app/.env holds your local values; the EAS variables win for this command."
-offer_run apps/app "Export the web app and deploy it to production, with the EAS production variables." \
-  eas env:exec production "pnpm deploy:web"
-if (( RAN_OK == 1 )) && grep -rqF "127.0.0.1:54321" apps/app/dist 2>/dev/null; then
-  warn "The exported app still points at the LOCAL Supabase (127.0.0.1:54321): the EAS production"
-  warn "variables did not reach the export. Fix the variables and deploy again."
-  SKIPPED+=("redeploy the web app: the last export pointed at the local Supabase")
-fi
-note "The export is in apps/app/dist (git-ignored); you can delete it once deployed."
+say "Three steps, so nothing is published before it has been checked:"
+step "1. Export the web app with the EAS production variables (stays on this machine)."
+step "2. Check the export: it must not point at the local Supabase or carry the test seams."
+step "3. Only if the check passes, upload it to EAS Hosting."
+note "(The root 'pnpm deploy:web' script does 1 and 3 in one go, with no check in between.)"
 printf '\n'
-step "The command prints the production URL (for example https://pawpin.expo.app)."
+e2e_where=""
+if [[ "${EXPO_PUBLIC_E2E:-}" == "1" ]]; then e2e_where="your shell"; fi
+for f in apps/app/.env apps/app/.env.local apps/app/.env.production apps/app/.env.production.local; do
+  if [[ -f "$f" ]] && grep -qE "^[[:space:]]*(export[[:space:]]+)?EXPO_PUBLIC_E2E=[\"']?1" "$f"; then e2e_where="$f"; fi
+done
+if [[ -n "$e2e_where" ]]; then
+  warn "EXPO_PUBLIC_E2E=1 is set in $e2e_where. It would put the test-photo button in the hosted app."
+  warn "Nothing was exported or deployed. Remove it, then run this wizard again (answers are kept)."
+  SKIPPED+=("remove EXPO_PUBLIC_E2E=1 from $e2e_where, then run the wizard again: the web app was not deployed, and the stages after this one were not shown")
+  pause "Press Enter to see what is still to do."
+  finish
+  return 0
+fi
+note "apps/app/.env holds your local values; the EAS production variables win for this command."
+offer_run apps/app "1. Export the web app with the EAS production variables." \
+  eas env:exec production "pnpm exec expo export --platform web"
+deploy_ok=0
+if (( RAN_OK == 1 )); then
+  say "2. Checking the export (files on this machine only; nothing is sent):"
+  problems=0
+  if grep -rqF -e "127.0.0.1:54321" -e "localhost:54321" apps/app/dist 2>/dev/null; then
+    warn "The export points at the LOCAL Supabase: the EAS production variables did not reach it."
+    problems=1
+  fi
+  if grep -rqF 'EXPO_PUBLIC_E2E:"1"' apps/app/dist 2>/dev/null; then
+    warn "The export has the end-to-end test seams switched on (EXPO_PUBLIC_E2E=1)."
+    problems=1
+  fi
+  if (( problems == 0 )); then
+    printf '  %s✓ the export looks like production%s\n' "$GREEN" "$RESET"
+    deploy_ok=1
+  fi
+else
+  say "Without a finished export there is nothing to check or upload."
+fi
+if (( deploy_ok == 1 )); then
+  offer_run apps/app "3. Upload the checked export to production on EAS Hosting." eas deploy --prod
+  note "The export is in apps/app/dist (git-ignored); you can delete it once it is deployed."
+else
+  warn "Not deploying."
+  SKIPPED+=("deploy the web app (cd apps/app): export with eas env:exec production, check the export, then eas deploy --prod")
+fi
+printf '\n'
+step "The deploy prints the production URL (for example https://pawpin.expo.app)."
 while :; do
   ask WEB_ORIGIN "Web address of the deployed app (or empty if you have not deployed):" || true
   if [[ -z "${WEB_ORIGIN:-}" || "$WEB_ORIGIN" =~ ^https://[A-Za-z0-9.-]+$ ]]; then break; fi
@@ -849,12 +881,16 @@ stage "Pilot checks and what is left"
 say "Do these by hand with a real tester account once the app is out:"
 step "Web: open ${WEB_ORIGIN:-the hosted address} at phone and desktop width; sign in with an email code and with Apple."
 step "iPhone (TestFlight): sign in with Apple (the native id-token path), add a pet, take photos."
+step "Reload a pet's profile, and its photos and edit pages, on the hosted web app: a hard reload, a"
+step "bookmark, and a link sent to someone else must each open the right screen. A 404 means the"
+step "static export has no page for pet ids on EAS Hosting: see README 'Hosted web notes' for the fix."
 step "A stranger sees 'This pilot is invite-only' and, if you set one, the support link."
 step "Delete a pet and delete the account; the photos disappear."
 printf '\n'
 say "Owner follow-ups, also listed at the end:"
 step "Install Maestro (it needs you to trust its Homebrew tap), then run: pnpm test:e2e:ios"
 step "Give the web Apple button Apple's branded styling before a public launch (Apple's guidelines)."
+SKIPPED+=("pilot check: on the hosted web app, hard-reload a pet's profile, photos and edit pages (/pets/<id>, /pets/<id>/photos, /pets/<id>/edit); if they 404, switch web.output to 'server' (README: Hosted web notes)")
 SKIPPED+=("install Maestro (https://docs.maestro.dev/getting-started/installing-maestro; trusting its Homebrew tap is your call), then run pnpm test:e2e:ios before each TestFlight build")
 SKIPPED+=("before a public launch: give the web Apple button Apple-branded styling (Human Interface Guidelines)")
 pause "Press Enter to finish."

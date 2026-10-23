@@ -20,6 +20,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Deno 2.9 rewrites package.json when it resolves an npm: import from the repository root. This
+    # reaches every Deno command here (`deno test` and `deno check`), not just one step.
+    env:
+      DENO_NO_PACKAGE_JSON: '1'
     steps:
       - uses: actions/checkout@v4
 
@@ -65,14 +69,11 @@ jobs:
       - name: Edge Function unit tests
         run: pnpm test:functions
 
-      # DENO_NO_PACKAGE_JSON: Deno 2.9 would otherwise rewrite package.json while resolving npm:.
       - name: Type-check the Edge Functions
         run: >-
           deno check
           supabase/functions/delete-account/index.ts
           supabase/functions/storage-cleanup/index.ts
-        env:
-          DENO_NO_PACKAGE_JSON: '1'
 
       # typecheck, lint, unit tests, then the web end-to-end tests (Playwright at 390 and 1440 px).
       - name: Verify

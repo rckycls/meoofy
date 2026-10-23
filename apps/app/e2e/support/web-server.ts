@@ -45,10 +45,13 @@ const types: Record<string, string> = {
 }
 
 /**
- * The file for a URL path, the way a static host picks it: the file itself, else the route's own
- * page (`/sign-in` is `sign-in.html`; the export is static, one page per route). A route with no
- * page of its own, such as a pet's profile (its id is not known at build time), gets the app's
- * first page, which carries the whole app and takes over on the client.
+ * The file for a URL path, the way a typical static server picks it: the file itself, else the
+ * route's own page (`/sign-in` is `sign-in.html`; the export is static, one page per route). A route
+ * with no page of its own, such as a pet's profile (its id is not known at build time), gets the
+ * app's first page, which carries the whole app and takes over on the client.
+ *
+ * That last fallback is a convenience for these tests. It is not what EAS Hosting does for an
+ * unknown path, so a green run here says nothing about reloading `/pets/<id>` on the hosted app.
  */
 function fileFor(urlPath: string): string {
   const relative = normalize(decodeURIComponent(urlPath)).replace(/^[/\\]+/, '')

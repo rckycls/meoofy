@@ -111,7 +111,10 @@ iOS Simulator, which is run by hand on a Mac before each TestFlight build. It ne
    ```
 
 The flow assumes a debug build with Metro serving it, and it has not been run yet (Maestro is not
-installed on the build machine).
+installed on the build machine). The project now includes `expo-dev-client`, so a debug build opens
+Expo's development launcher on a fresh start rather than the app. Expect to adjust the flow's
+`launchApp` step the first time it runs (for example to open the dev-client link, or to use a Release
+build, which has no launcher).
 
 ## Deploying the pilot
 
@@ -151,11 +154,16 @@ CLI (`npm install -g eas-cli`, then `eas login`).
 cd apps/app && eas env:exec production "pnpm deploy:web"
 ```
 
+That script exports and uploads in one go, with no look at the export in between. The wizard does it in
+three separate steps so nothing is published unchecked: export with the EAS production variables, check
+that `apps/app/dist` neither points at `127.0.0.1:54321` nor has `EXPO_PUBLIC_E2E` on, and only then
+`eas deploy --prod`.
+
 ### EAS build profiles (`apps/app/eas.json`)
 
 | Profile | For | Notes |
 |---|---|---|
-| `development` | A development client | `developmentClient: true`, `EXPO_PUBLIC_E2E=1`. The project does not depend on `expo-dev-client` yet: add it (`npx expo install expo-dev-client`) before the first EAS development build |
+| `development` | A development client | `developmentClient: true`, `EXPO_PUBLIC_E2E=1`. Needs `expo-dev-client`, which the app depends on (pinned). Its config plugin adds a local-network purpose string and an `exp+pawpin` URL scheme to every build's Info.plist, production included; the launcher itself is left out of Release builds |
 | `preview` | Internal testing builds | `distribution: internal` |
 | `production` | TestFlight and the App Store | `autoIncrement: true`, and never `EXPO_PUBLIC_E2E` |
 
@@ -168,19 +176,33 @@ Builds read their `EXPO_PUBLIC_*` values from the EAS environment of the same na
 |---|---|---|
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` | EAS (production, preview); `apps/app/.env` locally | Yes |
 | `EXPO_PUBLIC_SENTRY_DSN` | EAS; optional | Yes |
-| `EXPO_PUBLIC_SUPPORT_EMAIL` | EAS; optional | Yes. A shared support address, not a personal one. When set, the invite-only message links to it; when unset there is no link |
+| `EXPO_PUBLIC_SUPPORT_EMAIL` | EAS; optional | Yes. A shared support address, not a personal one. When set, the invite-only message links to it; when unset, or when it is not a plain address (spaces, `?`, `&`, `,` and `;` are refused), there is no link |
 | `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | EAS; optional, build time | The token is a **secret**. All three are needed together to upload source maps. With no token a build skips the upload |
 | `EXPO_PUBLIC_E2E` | Command line, for one build | Never in a file, never in production |
 
 ### Hosted web notes
 
-- The web build is a static export, one HTML page per route. A hard reload of a page with a runtime id,
-  such as a pet's profile (`/pets/<id>`), has no page of its own: the id is not known at build time. On
-  a stand-in static server that answers unknown paths with the export's not-found page, that page boots
-  the app and shows the right screen, with one recoverable React hydration notice (error 418). **EAS
-  Hosting itself has not been checked.** Try reloading a pet's profile on the first deploy, and if it
-  shows a bare 404, reconsider `web.output` in `apps/app/app.config.ts`. Every other route, at 390 and
-  1440 px, loads with no hydration warning.
+- **Reloading a pet's page may 404 on EAS Hosting.** The web build is a static export
+  (`web.output: 'static'`, which the spec asks for): one HTML page per route, made at build time. The
+  routes `/pets/<id>`, `/pets/<id>/edit` and `/pets/<id>/photos` have no page of their own, because pet
+  ids are user data and cannot be listed at build time (so `generateStaticParams` is not possible), and
+  for static output Expo writes `_expo/.routes.json` without rewrites. In-app navigation is not affected.
+  A hard reload, a bookmark or a link someone sends to one of those addresses may answer 404.
+  - We have only seen a stand-in static server: it answers unknown paths with the export's not-found page,
+    which boots the app and shows the right screen, with one recoverable React hydration notice (error
+    418). **EAS Hosting itself has not been checked.**
+  - **Check it on the first deploy:** open a pet's profile, then its photos and edit pages, and hard
+    reload each. The wizard lists this as a pilot check.
+  - **If they 404, switch to server output:** set `web.output: 'server'` in `apps/app/app.config.ts`.
+    EAS Hosting supports it, and no route code has to change: the routes are rendered on demand, so
+    `/pets/<id>` works. For `deploy:web`: the command stays `expo export --platform web && eas deploy
+    --prod`, but the export now has `dist/client` and `dist/server`, and a server runtime that reads its own
+    variables from EAS, so deploy with `eas deploy --prod --environment production`. `EXPO_PUBLIC_*` values
+    are still put into the client at export time, so keep running the export through `eas env:exec
+    production`. Two things assume static output and must change with it: `config.test.ts` (it asserts
+    `web.output === 'static'`) and the end-to-end web server (`e2e/support/web-server.ts`, a static file
+    server over the export, which would serve it with `expo serve` instead).
+- Every other route, at 390 and 1440 px, loads with no hydration warning.
 - Web Apple sign-in uses PKCE: a person must finish signing in in the same browser, on the same origin,
   where they started it.
 
@@ -237,3 +259,5 @@ Things only the owner can do, or must decide:
    by default, while the app offers "Resend code" after 30 seconds, so an early resend shows "Take a short
    break". The defaults are kept on purpose.
 6. **Watch the Supabase spend** against the US$200 a month budget target.
+7. **Reload a pet's profile, photos and edit pages on the hosted web app** after the first deploy. If
+   they 404, switch `web.output` to `'server'` (see "Hosted web notes").
