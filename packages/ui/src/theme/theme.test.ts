@@ -137,6 +137,18 @@ describe('colour roles', () => {
     expect(failures).toEqual([])
   })
 
+  it('keeps every button label at AA contrast (4.5:1)', () => {
+    // Primary, secondary, urgent, and disabled (see Button.tsx).
+    const pairs = [
+      [colors.white, colors.cobalt],
+      [colors.deepBlue, colors.white],
+      [colors.white, colors.deepBlue],
+      [colors.deepBlue, colors.line],
+    ] as const
+    const failures = pairs.filter(([text, background]) => contrast(text, background) < 4.5)
+    expect(failures).toEqual([])
+  })
+
   it('maps the owner flow tint', () => {
     expect(flowTints.owner.tint).toBe('#E6F2FF')
   })

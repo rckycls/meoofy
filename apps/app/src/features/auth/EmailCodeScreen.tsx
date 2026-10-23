@@ -98,7 +98,13 @@ function CodeEntry({ email }: { email: string }) {
   const waiting = countdown.remaining > 0
 
   return (
-    <AuthFrame stickers={['love-letter']} title={copy.title} body={copy.body(email)}>
+    <AuthFrame
+      stickers={['love-letter']}
+      // S05 is drawn on the warm resilience tint, with a yellow note (board 05).
+      flow={refused ? 'resilience' : 'owner'}
+      title={copy.title}
+      body={copy.body(email)}
+    >
       <CodeInput
         label={copy.codeLabel}
         value={code}
@@ -106,7 +112,11 @@ function CodeEntry({ email }: { email: string }) {
         invalid={refused}
         ref={codeField}
       />
-      {refused ? <ProblemNote title={copy.expired.title}>{copy.expired.body}</ProblemNote> : null}
+      {refused ? (
+        <ProblemNote title={copy.expired.title} role="attention">
+          {copy.expired.body}
+        </ProblemNote>
+      ) : null}
       {problem === null ? null : <ProblemNote>{problemText(problem)}</ProblemNote>}
       {notice === null ? null : (
         <Text accessibilityLiveRegion="polite" style={styles.notice}>

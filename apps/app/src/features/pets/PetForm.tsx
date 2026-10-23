@@ -200,7 +200,13 @@ export function PetForm({
           </View>
           {showPrivacy ? (
             <Card role="privacy" title={copy.add.privacy.title}>
-              {copy.add.privacy.body}
+              <View style={styles.cornerSticker}>
+                <Sticker name="privacy-shield" size={40} rotate={6} />
+              </View>
+              {/* A string alone is the card's body text; beside the sticker it needs its own. */}
+              <Text style={[styles.privacyBody, { color: cardRoles.privacy.body }]}>
+                {copy.add.privacy.body}
+              </Text>
             </Card>
           ) : null}
           {problem === null ? null : <ProblemView error={problem} />}
@@ -318,4 +324,6 @@ const styles = StyleSheet.create({
   optionLabel: { ...textStyle(type.cardTitle), color: colors.deepBlue },
   limitBody: textStyle(type.body),
   draftNote: { ...textStyle(type.small), color: colors.slate },
+  cornerSticker: { position: 'absolute', top: space[8], right: space[8] },
+  privacyBody: textStyle(type.body),
 })

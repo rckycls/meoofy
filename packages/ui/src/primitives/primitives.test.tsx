@@ -63,7 +63,7 @@ describe('Button', () => {
     expect(screen.getByText('I found a pet')).toHaveStyle({ color: colors.white })
   })
 
-  it('uses cobalt for primary and a white outlined surface for secondary', async () => {
+  it('uses cobalt for primary and a white surface with a line border for secondary', async () => {
     await render(
       <>
         <Button label="Primary" onPress={jest.fn()} variant="primary" />
@@ -76,9 +76,9 @@ describe('Button', () => {
     })
     expect(screen.getByRole('button', { name: 'Secondary' })).toHaveStyle({
       backgroundColor: colors.white,
-      borderColor: colors.cobalt,
+      borderColor: colors.line,
     })
-    expect(screen.getByText('Secondary')).toHaveStyle({ color: colors.cobalt })
+    expect(screen.getByText('Secondary')).toHaveStyle({ color: colors.deepBlue })
   })
 
   it('is at least 48 pt high with radius 16', async () => {
@@ -94,8 +94,8 @@ describe('Button', () => {
   it('greys out when disabled whatever the variant', async () => {
     await render(<Button label="Continue" onPress={jest.fn()} variant="urgent" disabled />)
 
-    expect(screen.getByRole('button')).toHaveStyle({ backgroundColor: colors.mistGray })
-    expect(screen.getByText('Continue')).toHaveStyle({ color: colors.slate })
+    expect(screen.getByRole('button')).toHaveStyle({ backgroundColor: colors.line })
+    expect(screen.getByText('Continue')).toHaveStyle({ color: colors.deepBlue })
   })
 })
 

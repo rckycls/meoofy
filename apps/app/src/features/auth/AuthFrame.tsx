@@ -1,12 +1,23 @@
 import type { ReactNode } from 'react'
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native'
-import { ScreenShell, Sticker, colors, space, textStyle, type, type StickerName } from '@pawpin/ui'
+import {
+  ScreenShell,
+  Sticker,
+  colors,
+  space,
+  textStyle,
+  type,
+  type Flow,
+  type StickerName,
+} from '@pawpin/ui'
 
 import { ContentColumn } from '../../layout/ContentColumn'
 
 type AuthFrameProps = {
   /** Decoration above the headline; hidden from assistive tech. */
   stickers: readonly StickerName[]
+  /** The screen's tint; the owner flow's unless the screen is in a resilience state (S05). */
+  flow?: Flow
   title: string
   body: string
   children: ReactNode
@@ -17,13 +28,13 @@ type AuthFrameProps = {
  * controls. The screen scrolls, so larger Dynamic Type grows it instead of clipping, and it lifts
  * above the keyboard on iOS.
  */
-export function AuthFrame({ stickers, title, body, children }: AuthFrameProps) {
+export function AuthFrame({ stickers, flow = 'owner', title, body, children }: AuthFrameProps) {
   return (
     <KeyboardAvoidingView
       style={styles.fill}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScreenShell flow="owner" scroll>
+      <ScreenShell flow={flow} scroll>
         <ContentColumn style={styles.column}>
           <View style={styles.header}>
             <View style={styles.stickers}>

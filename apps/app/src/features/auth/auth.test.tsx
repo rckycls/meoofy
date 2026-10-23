@@ -1,4 +1,4 @@
-import { Dimensions, Platform, StyleSheet, Text, TextInput } from 'react-native'
+import { Dimensions, Platform, StyleSheet, Text, TextInput, processColor } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library'
@@ -13,6 +13,7 @@ import {
   type Profile,
 } from '@pawpin/api'
 import { AppError } from '@pawpin/core'
+import { cardRoles, flowTints } from '@pawpin/ui'
 
 import EmailCode from '../../../app/(auth)/email-code'
 import AuthLayout from '../../../app/(auth)/_layout'
@@ -556,6 +557,23 @@ describe('email code', () => {
 
       expect(codeInput()).toHaveDisplayValue('123456')
       expect(mockVerifyEmailCode).toHaveBeenCalledTimes(1)
+    })
+
+    it('draws the refused code (S05) on the resilience tint with a yellow note (board 05)', async () => {
+      mockVerifyEmailCode.mockRejectedValue(new AppError('UNAUTHENTICATED'))
+      await openCodeScreen()
+      // The sign-in screen stays mounted under the code screen: the code screen's is the last.
+      const gradient = () =>
+        screen.getAllByTestId('screen-gradient', { includeHiddenElements: true }).at(-1)!
+      expect(gradient().props.colors[0]).toBe(processColor(flowTints.owner.tint))
+
+      await enterCode('123456')
+      await screen.findByText('That code didn’t work')
+
+      expect(gradient().props.colors[0]).toBe(processColor(flowTints.resilience.tint))
+      expect(screen.getByTestId('card-gradient').props.colors[0]).toBe(
+        processColor(cardRoles.attention.from),
+      )
     })
 
     it('comes back to the field after a code is refused, ready for the next try (S05)', async () => {

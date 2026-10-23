@@ -65,6 +65,8 @@ const styles = StyleSheet.create({
     padding: space[16],
     borderRadius: radii.card,
     borderWidth: 1.5,
+    // Dashed, as on board 08: the card is an invitation to add something.
+    borderStyle: 'dashed',
     borderColor: colors.cobalt,
     backgroundColor: colors.white,
   },

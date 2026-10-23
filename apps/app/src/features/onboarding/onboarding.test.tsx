@@ -307,6 +307,14 @@ describe('O03 all set', () => {
     expect(screen.getByRole('button', { name: 'Add my first pet' })).toBeOnTheScreen()
   })
 
+  it('draws the add card dashed, as an invitation (board 08)', async () => {
+    await open('/all-set', 'u1')
+    await screen.findByText('You’re all set, Alex.')
+
+    const card = screen.getByRole('button', { name: /Add a dog or cat/ })
+    expect(card).toHaveStyle({ borderStyle: 'dashed' })
+  })
+
   it('"Add my first pet" opens the add-pet form', async () => {
     const { router } = await open('/all-set', 'u1')
     await screen.findByText('You’re all set, Alex.')

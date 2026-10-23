@@ -17,16 +17,19 @@ export type ButtonProps = {
 
 type Surface = { background: string; border: string; text: string }
 
+// The colours are the component library's (board 00): the secondary button is white with a
+// hairline `line` border and deepBlue text, and a disabled button of any variant is `line` with
+// deepBlue text.
 const surfaces: Record<ButtonVariant, Surface> = {
   primary: { background: colors.cobalt, border: colors.cobalt, text: colors.white },
-  secondary: { background: colors.white, border: colors.cobalt, text: colors.cobalt },
+  secondary: { background: colors.white, border: colors.line, text: colors.deepBlue },
   urgent: { background: colors.deepBlue, border: colors.deepBlue, text: colors.white },
 }
 
 const disabledSurface: Surface = {
-  background: colors.mistGray,
-  border: colors.mistGray,
-  text: colors.slate,
+  background: colors.line,
+  border: colors.line,
+  text: colors.deepBlue,
 }
 
 export function Button({
@@ -65,7 +68,7 @@ const styles = StyleSheet.create({
     // Dynamic Type instead of clipping.
     minHeight: 48,
     borderRadius: radii.button,
-    borderWidth: 1.5,
+    borderWidth: 1,
     paddingHorizontal: space[24],
     justifyContent: 'center',
     alignItems: 'center',

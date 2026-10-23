@@ -39,6 +39,7 @@ export function HomeScreen() {
   const addPet = () => router.push(fullPlan === null ? '/pets/new' : '/plans')
   const comparePlans = () => router.push('/plans')
   const hasPets = pets.data !== undefined && pets.data.length > 0
+  const isEmpty = pets.data !== undefined && pets.data.length === 0
 
   const greeting = (
     <Text accessibilityRole="header" style={styles.greeting}>
@@ -46,17 +47,20 @@ export function HomeScreen() {
     </Text>
   )
   const list = <PetsSection pets={pets} onAdd={addPet} />
+  // On the phone it sits on the screen; on desktop it is inside the plan card.
   const fullNote =
     fullPlan !== null && fullPlan.petLimit !== null ? (
-      <Text style={styles.note}>{homeCopy.plan.full(fullPlan.tier, fullPlan.petLimit)}</Text>
+      <Text style={desktop ? styles.cardNote : styles.note}>
+        {homeCopy.plan.full(fullPlan.tier, fullPlan.petLimit)}
+      </Text>
     ) : null
   const addButton = hasPets ? (
     <Button variant="primary" label={homeCopy.addPet} onPress={addPet} />
   ) : null
 
   return (
-    // The tab bar pads the bottom safe area itself.
-    <ScreenShell flow="owner" scroll edges={['top', 'left', 'right']}>
+    // The tab bar pads the bottom safe area itself. S01 has its own warmer tint (board 05).
+    <ScreenShell flow={isEmpty ? 'resilience' : 'owner'} scroll edges={['top', 'left', 'right']}>
       <ContentColumn style={[styles.column, desktop ? styles.wide : null]}>
         {desktop ? (
           <View testID="home-columns" style={styles.columns}>
@@ -66,9 +70,12 @@ export function HomeScreen() {
             </View>
             <View testID="home-side" style={styles.side}>
               <Card
-                role="plain"
+                role="community"
                 title={plan ? homeCopy.plan.cardTitle(plan) : homeCopy.plan.unknownCardTitle}
               >
+                <View style={styles.cornerSticker}>
+                  <Sticker name="paw-star" size={32} rotate={6} />
+                </View>
                 {fullNote}
                 <TextLink label={homeCopy.plan.comparePlans} onPress={comparePlans} />
                 {addButton}
@@ -140,12 +147,12 @@ function PetsSection({ pets, onAdd }: { pets: ReturnType<typeof usePets>; onAdd:
 /** S01: nothing registered yet. */
 function EmptyRegistry({ onAdd }: { onAdd: () => void }) {
   return (
-    <Card role="privacy" title={homeCopy.empty.title}>
+    <Card role="celebration" title={homeCopy.empty.title}>
       <View style={styles.stickers}>
         <Sticker name="dog" size={64} rotate={-6} />
         <Sticker name="cat" size={64} rotate={6} />
       </View>
-      <Text style={[styles.emptyBody, { color: cardRoles.privacy.body }]}>
+      <Text style={[styles.emptyBody, { color: cardRoles.celebration.body }]}>
         {homeCopy.empty.body}
       </Text>
       <Button variant="primary" label={homeCopy.empty.action} onPress={onAdd} />
@@ -163,6 +170,8 @@ const styles = StyleSheet.create({
   planLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   plan: { ...textStyle(type.noteTitle), color: colors.slate },
   note: { ...textStyle(type.body), color: colors.slate },
+  cardNote: { ...textStyle(type.body), color: cardRoles.community.body },
+  cornerSticker: { position: 'absolute', top: space[8], right: space[8] },
   list: { gap: space[16] },
   loading: { paddingVertical: space[32] },
   stickers: { flexDirection: 'row', gap: space[8] },

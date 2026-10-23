@@ -11,7 +11,7 @@ import {
   type Profile,
 } from '@pawpin/api'
 import { AppError } from '@pawpin/core'
-import { flowTints } from '@pawpin/ui'
+import { cardRoles, flowTints } from '@pawpin/ui'
 
 import HomeTab from '../../../app/(tabs)/home'
 import { fakeClient } from '../../testing/fakeClient'
@@ -288,6 +288,27 @@ describe('S01 empty registry', () => {
     await waitFor(() => expect(router.getPathname()).toBe('/pets/new'))
   })
 
+  it('is drawn on the warm resilience tint, in a celebration card (board 05)', async () => {
+    await open()
+    await screen.findByText('Your circle starts here')
+
+    const gradient = screen.getByTestId('screen-gradient', { includeHiddenElements: true })
+    expect(gradient.props.colors[0]).toBe(processColor(flowTints.resilience.tint))
+    expect(screen.getByTestId('card-gradient').props.colors[0]).toBe(
+      processColor(cardRoles.celebration.from),
+    )
+  })
+
+  it('goes back to the owner tint once there is a pet', async () => {
+    mockListPets.mockResolvedValue([milo])
+    mockGetEntitlement.mockResolvedValue(free(1))
+    await open()
+    await screen.findByText('Milo')
+
+    const gradient = screen.getByTestId('screen-gradient', { includeHiddenElements: true })
+    expect(gradient.props.colors[0]).toBe(processColor(flowTints.owner.tint))
+  })
+
   it('hides its stickers from screen readers', async () => {
     await open()
     await screen.findByText('Your circle starts here')
@@ -340,6 +361,17 @@ describe('layout', () => {
     expect(side.getByRole('button', { name: 'Compare plans' })).toBeOnTheScreen()
     expect(main.queryByRole('button', { name: 'Add a pet' })).toBeNull()
     expect(screen.queryByText('2 of 3 · Free')).toBeNull()
+  })
+
+  it('draws the desktop plan card in the community colours with a paw-star sticker (board 07)', async () => {
+    setWindowWidth(1440, 1000)
+    await open()
+    const side = within(await screen.findByTestId('home-side'))
+
+    expect(side.getByTestId('card-gradient').props.colors[0]).toBe(
+      processColor(cardRoles.community.from),
+    )
+    expect(side.getByTestId('sticker-paw-star', { includeHiddenElements: true })).toBeOnTheScreen()
   })
 
   it('opens Compare plans from the desktop plan card, and Add a pet follows the limit', async () => {

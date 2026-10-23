@@ -174,6 +174,16 @@ describe('O03 Let’s meet your pet', () => {
     expect(mockCreatePet).not.toHaveBeenCalled()
   })
 
+  it('puts the privacy shield sticker on the promise (board 01), hidden from screen readers', async () => {
+    await open('/pets/new')
+    await screen.findByRole('header', { name: 'Only you can see this' })
+
+    expect(screen.queryByTestId('sticker-privacy-shield')).toBeNull()
+    expect(
+      screen.getByTestId('sticker-privacy-shield', { includeHiddenElements: true }),
+    ).toBeOnTheScreen()
+  })
+
   it('asks for a name, and makes no API call, when it is empty', async () => {
     await open('/pets/new')
     await screen.findByRole('header', { name: 'Let’s meet your pet' })
