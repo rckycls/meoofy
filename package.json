@@ -18,11 +18,15 @@
     "gen:types": "supabase gen types typescript --local --schema api > packages/api/src/database.types.ts",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
+    "db:push": "supabase db push && supabase functions deploy delete-account storage-cleanup",
     "test:db": "supabase test db",
     "test:functions": "deno test supabase/functions/_shared",
     "test:api": "pnpm --filter @pawpin/api test:int",
     "test:e2e:web": "pnpm --filter @pawpin/app test:e2e:web",
-    "test:e2e:ios": "pnpm --filter @pawpin/app test:e2e:ios"
+    "test:e2e:ios": "pnpm --filter @pawpin/app test:e2e:ios",
+    "deploy:web": "pnpm --filter @pawpin/app deploy:web",
+    "build:ios": "pnpm --filter @pawpin/app build:ios",
+    "submit:ios": "pnpm --filter @pawpin/app submit:ios"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

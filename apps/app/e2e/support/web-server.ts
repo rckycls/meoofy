@@ -44,7 +44,12 @@ const types: Record<string, string> = {
   '.woff2': 'font/woff2',
 }
 
-/** The file for a URL path, or the app's one page for any route (it is a single-page app). */
+/**
+ * The file for a URL path, the way a static host picks it: the file itself, else the route's own
+ * page (`/sign-in` is `sign-in.html`; the export is static, one page per route). A route with no
+ * page of its own, such as a pet's profile (its id is not known at build time), gets the app's
+ * first page, which carries the whole app and takes over on the client.
+ */
 function fileFor(urlPath: string): string {
   const relative = normalize(decodeURIComponent(urlPath)).replace(/^[/\\]+/, '')
   const candidate = join(outputDir, relative)
@@ -52,10 +57,13 @@ function fileFor(urlPath: string): string {
   if (candidate !== outputDir && !candidate.startsWith(outputDir + sep)) {
     return join(outputDir, 'index.html')
   }
-  try {
-    if (statSync(candidate).isFile()) return candidate
-  } catch {
-    // Not a file: fall through to the app.
+  const page = extname(relative) === '' ? `${candidate}.html` : candidate
+  for (const file of [candidate, page]) {
+    try {
+      if (statSync(file).isFile()) return file
+    } catch {
+      // Not a file: try the next.
+    }
   }
   return extname(relative) === '' ? join(outputDir, 'index.html') : candidate
 }

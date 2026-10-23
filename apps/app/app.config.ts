@@ -26,10 +26,14 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'com.pawpin.pilot',
     supportsTablet: true,
+    // Sign in with Apple is one of the two ways in (spec section 3). This adds the entitlement
+    // to the native project, and the capability to the App ID when EAS Build manages credentials.
+    usesAppleSignIn: true,
   },
   web: {
     bundler: 'metro',
-    output: 'single',
+    // One HTML file per route, rendered at build time, which is what EAS Hosting serves.
+    output: 'static',
   },
   plugins: [
     'expo-router',
@@ -53,8 +57,9 @@ const config: ExpoConfig = {
       },
     ],
     // Crash reporting itself starts from EXPO_PUBLIC_SENTRY_DSN (src/observability); this adds
-    // only the native pieces and the source-map upload settings. The organisation and project
-    // are optional, and the auth token is only ever read from SENTRY_AUTH_TOKEN at build time.
+    // only the native pieces and the source-map upload settings. An upload needs the auth token
+    // (only ever read from SENTRY_AUTH_TOKEN at build time) and, once that is set, the
+    // organisation and project as well; with no token none of the three is needed.
     [
       '@sentry/react-native/expo',
       {
