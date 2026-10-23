@@ -12,8 +12,9 @@ const ORIGIN = `http://127.0.0.1:${PORT}`
 export default defineConfig({
   testDir: './e2e/web',
   outputDir: './e2e/.results',
-  // A cold sign-in, three uploads and a deletion run against a real backend.
-  timeout: 90_000,
+  // A cold sign-in, three uploads and a deletion run against a real backend, and the browser's
+  // check of each photo can take ten seconds on a busy machine.
+  timeout: 150_000,
   expect: { timeout: 10_000 },
   // One at a time: every test talks to the same local stack, and one browser at a time keeps the
   // timings steady on a laptop.

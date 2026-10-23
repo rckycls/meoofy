@@ -79,30 +79,60 @@ async function removeFiles(names: string[]): Promise<void> {
  * Takes a test owner out of the local stack again: the user and everything that belongs to them,
  * the allowlist entry, and what is left of their photos. The database tests count the whole
  * deletion queue, so a run must not leave rows in it.
+ *
+ * Every step is tried whatever happened to the others (a Storage or CLI failure must not leave the
+ * user and the allowlist entry behind). Failures are collected and reported together at the end,
+ * so a failed clean-up is loud but never stops the rest of it.
  */
 export async function removeOwner(email: string): Promise<void> {
   const address = email.toLowerCase()
-  const owners = (
-    await sql<{ id: string }>('select id::text as id from auth.users where email = $1', [address])
-  ).map((row) => row.id)
+  const failures: string[] = []
+  async function attempt(what: string, step: () => Promise<unknown>): Promise<void> {
+    try {
+      await step()
+    } catch (error) {
+      failures.push(`${what}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  let owners: string[] = []
+  await attempt('find the user', async () => {
+    owners = (
+      await sql<{ id: string }>('select id::text as id from auth.users where email = $1', [address])
+    ).map((row) => row.id)
+  })
 
   if (owners.length > 0) {
-    const files = (
-      await sql<{ name: string }>(
-        `select name from storage.objects
-          where bucket_id = 'pet-photos' and split_part(name, '/', 1) = any($1)`,
-        [owners],
-      )
-    ).map((row) => row.name)
-    if (files.length > 0) await removeFiles(files)
-    await sql('delete from auth.users where id::text = any($1)', [owners])
+    await attempt('remove the photo files', async () => {
+      const files = (
+        await sql<{ name: string }>(
+          `select name from storage.objects
+            where bucket_id = 'pet-photos' and split_part(name, '/', 1) = any($1)`,
+          [owners],
+        )
+      ).map((row) => row.name)
+      if (files.length > 0) await removeFiles(files)
+    })
+    await attempt('delete the user', () =>
+      sql('delete from auth.users where id::text = any($1)', [owners]),
+    )
     // Deleting a user's pets queues their files; those files are already gone.
-    await sql(
-      `delete from registry.storage_deletions where split_part(storage_path, '/', 1) = any($1)`,
-      [owners],
+    await attempt('clear the deletion queue', () =>
+      sql(
+        `delete from registry.storage_deletions where split_part(storage_path, '/', 1) = any($1)`,
+        [owners],
+      ),
     )
   }
-  await sql('delete from identity.pilot_allowlist where email = $1', [address])
-  await sql('delete from identity.signup_rejections where email = $1', [address])
-  await clearInbox(address)
+  await attempt('remove the allowlist entry', () =>
+    sql('delete from identity.pilot_allowlist where email = $1', [address]),
+  )
+  await attempt('remove the sign-up rejections', () =>
+    sql('delete from identity.signup_rejections where email = $1', [address]),
+  )
+  await attempt('clear the inbox', () => clearInbox(address))
+
+  if (failures.length > 0) {
+    throw new Error(`Cleaning up ${address} was incomplete:\n- ${failures.join('\n- ')}`)
+  }
 }
