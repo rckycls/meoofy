@@ -1,7 +1,7 @@
 -- Schema shape, grants, row-level security, the auth-user trigger, limits and shared helpers.
 -- Uses tests.create_user / tests.authenticate_as / tests.clear_auth from 000_helpers.sql.
 begin;
-select plan(105);
+select plan(106);
 
 -- ---------------------------------------------------------------------------
 -- Schemas, tables, columns and enums (spec §5)
@@ -349,8 +349,15 @@ select results_eq(
               where owner_id = current_setting('pawpin.a')::uuid)::int $$,
   $$ values (0, 0, 0, 0) $$,
   'deleting an auth user cascades to their profile, account, pets and photos');
-select is((select count(*)::int from audit.events where actor_id = current_setting('pawpin.a')::uuid),
-  1, 'audit events outlive the user');
+select results_eq(
+  $$ select actor_id, action, subject_type, subject_id from audit.events
+      where action = 'pet.created' and subject_id = 'a0000000-0000-4000-8000-000000000001' $$,
+  $$ values (null::uuid, 'pet.created', 'pet', 'a0000000-0000-4000-8000-000000000001'::uuid) $$,
+  'audit events outlive the user, with the user''s id stripped (Ruling 24)');
+select is(
+  (select count(*)::int from audit.events
+    where current_setting('pawpin.a')::uuid in (actor_id, subject_id)),
+  0, 'no audit event references the deleted user any more');
 
 -- ---------------------------------------------------------------------------
 -- internal.fail and internal.trim_ws
