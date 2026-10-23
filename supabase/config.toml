@@ -251,6 +251,18 @@ otp_expiry = 600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# PawPin signs in with a 6-digit email code (spec §3), so the sign-in emails carry {{ .Token }}
+# and no link. An email sign-in to an existing user sends `magic_link`; `confirmation` covers a
+# new user when email confirmations are on (the hosted default). Changing these needs
+# `supabase stop && supabase start`; the hosted project sets the same templates in the dashboard.
+[auth.email.template.magic_link]
+subject = "Your PawPin sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
+
+[auth.email.template.confirmation]
+subject = "Your PawPin sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

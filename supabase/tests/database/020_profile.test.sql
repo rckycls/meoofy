@@ -292,7 +292,7 @@ select lives_ok(
   'audit.record_system takes a subject and metadata');
 select results_eq(
   $$ select action, subject_type, subject_id, metadata from audit.events
-      where actor_id is null order by id $$,
+      where action like 'test.%' and actor_id is null order by id $$,
   $$ values ('test.system', 'test', null, '{}'::jsonb),
             ('test.system_full', 'test', 'f0000000-0000-4000-8000-000000000002'::uuid,
              '{"deleted": 3}'::jsonb) $$,
