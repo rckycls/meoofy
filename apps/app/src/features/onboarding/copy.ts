@@ -9,7 +9,7 @@ export const onboardingCopy = {
   },
   choosePath: {
     title: 'How would you like to help?',
-    body: 'Choose a path now. You can switch anytime in Account.',
+    body: 'Choose a path now. You can always do both later.',
     owner: { title: 'Protect my pet', body: 'Private profile, ready if they wander.' },
     finder: { title: 'Help a found pet', body: 'Scan a photo. No account needed.' },
     primary: 'Continue',

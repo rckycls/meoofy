@@ -157,6 +157,15 @@ describe('O01 choose your path', () => {
     return opened
   }
 
+  it('asks how the person would like to help and says both paths stay open', async () => {
+    await openChoosePath()
+
+    expect(screen.getByRole('header', { name: 'How would you like to help?' })).toBeOnTheScreen()
+    // Literal strings: no path switching exists in the pilot, so the copy must not promise it.
+    expect(screen.getByText('Choose a path now. You can always do both later.')).toBeOnTheScreen()
+    expect(screen.queryByText(/switch anytime/)).toBeNull()
+  })
+
   it('selects "Protect my pet" by default', async () => {
     await openChoosePath()
 
