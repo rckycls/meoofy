@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    // DOM: the spec's `page.evaluate` callbacks run in the browser.
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["./**/*.ts", "../playwright.config.ts"]
+}

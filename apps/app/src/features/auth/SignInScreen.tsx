@@ -168,6 +168,7 @@ export function SignInScreen() {
         </>
       ) : null}
       <Field
+        testID="email-input"
         label={copy.emailLabel}
         placeholder={copy.emailPlaceholder}
         value={email}

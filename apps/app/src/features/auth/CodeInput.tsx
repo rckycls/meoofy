@@ -66,6 +66,7 @@ export function CodeInput({ label, value, onChangeText, invalid = false, ref }: 
       </View>
       <TextInput
         ref={input}
+        testID="code-input"
         accessibilityLabel={label}
         value={value}
         onChangeText={onChangeText}

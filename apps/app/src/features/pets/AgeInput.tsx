@@ -70,6 +70,7 @@ export function AgeInput({ years, months, onChangeYears, onChangeMonths, errors 
       <View style={styles.row}>
         <View style={styles.cell}>
           <Field
+            testID="pet-years-input"
             label={copy.fields.years}
             value={years}
             onChangeText={onChangeYears}
@@ -80,6 +81,7 @@ export function AgeInput({ years, months, onChangeYears, onChangeMonths, errors 
         </View>
         <View style={styles.cell}>
           <Field
+            testID="pet-months-input"
             label={copy.fields.months}
             value={months}
             onChangeText={onChangeMonths}

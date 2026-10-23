@@ -11,3 +11,7 @@ expo-env.d.ts
 # Continuous Native Generation: EAS prebuilds the native projects, nothing native is committed.
 apps/app/ios/
 apps/app/android/
+
+# End-to-end runs: Playwright's traces, and the screenshots saved for the visual review.
+apps/app/e2e/.results/
+apps/app/e2e/screenshots/

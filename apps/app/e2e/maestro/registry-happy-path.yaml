@@ -1,0 +1,103 @@
+# The registry happy path on the iOS Simulator (spec section 11): onboarding, sign-in with an
+# emailed code, the name step, adding a pet, its three reference photos, the private profile and
+# deleting the pet. It is the same path as e2e/web/registry.spec.ts, with the same test IDs.
+#
+# Run it with `pnpm test:e2e:ios`, which allowlists a fresh address, passes it in as EMAIL, and
+# removes it afterwards. It needs the local Supabase stack, a booted simulator, and a development
+# build installed that was made with EXPO_PUBLIC_E2E=1 (that is what shows "Use test photo").
+appId: com.pawpin.pilot
+name: Registry happy path
+---
+# A clean start: no stored session, no onboarding flag, no cached pets.
+- launchApp:
+    clearState: true
+    clearKeychain: true
+
+# Onboarding (O00 to O02).
+- assertVisible: 'Every pet deserves a way home.'
+- tapOn: 'Get started'
+- assertVisible: 'How would you like to help?'
+- tapOn: 'Continue'
+- assertVisible: 'Helpful in public. Private by default.'
+- tapOn: 'Sounds good'
+
+# Sign in with an emailed code. Return on the keyboard submits the field.
+- assertVisible: 'Welcome to PawPin'
+- tapOn:
+    id: 'email-input'
+- inputText: ${EMAIL}
+- pressKey: Enter
+- assertVisible: 'Check your email'
+- runScript:
+    file: scripts/latest-code.js
+    env:
+      EMAIL: ${EMAIL}
+- tapOn:
+    id: 'code-input'
+- inputText: ${output.code}
+
+# A first sign-in has no name yet.
+- assertVisible: 'What should we call you?'
+- tapOn:
+    id: 'name-input'
+- inputText: 'Alex'
+- pressKey: Enter
+- assertVisible: 'You’re all set, Alex.'
+
+# Home starts empty (S01).
+- tapOn: 'Explore PawPin'
+- assertVisible: 'Your circle starts here'
+- tapOn: 'Add my first pet'
+
+# Add Milo, a 3-year-old Golden retriever dog. Years first: the number pad has no Return key, and
+# Return in the last field closes the keyboard.
+- assertVisible: 'Let’s meet your pet'
+- tapOn:
+    id: 'pet-years-input'
+- inputText: '3'
+- tapOn:
+    id: 'pet-name-input'
+- inputText: 'Milo'
+- tapOn: 'Dog'
+- tapOn:
+    id: 'pet-breed-input'
+- inputText: 'Golden retriever'
+- pressKey: Enter
+- scrollUntilVisible:
+    element: 'Continue to photos'
+- tapOn: 'Continue to photos'
+
+# Three reference photos from the bundled test photos. A saved photo moves the selection on, and
+# the selected tile's hint says which view that is.
+- assertVisible: 'A clearer photo helps'
+- scrollUntilVisible:
+    element: 'Use test photo'
+- tapOn: 'Use test photo'
+- assertVisible: 'Front photo, ready'
+- assertVisible: 'Show the side, so the full profile is in view.'
+- scrollUntilVisible:
+    element: 'Use test photo'
+- tapOn: 'Use test photo'
+- assertVisible: 'Side photo, ready'
+- assertVisible: 'Get close to patches, spots, scars or a collar tag.'
+- scrollUntilVisible:
+    element: 'Use test photo'
+- tapOn: 'Use test photo'
+- assertVisible: 'Markings photo, ready'
+
+# Done goes back to Home, which lists Milo; his private profile says Discovery Off.
+- scrollUntilVisible:
+    element: 'Done'
+- tapOn: 'Done'
+- assertVisible: 'Hello, Alex'
+- tapOn: 'Milo.*'
+- assertVisible: 'Discovery Off'
+- assertVisible: 'Milo is not searchable.'
+
+# Delete Milo: Cancel comes first in the dialog, the urgent choice second. Home is empty again.
+- scrollUntilVisible:
+    element: 'Delete pet'
+- tapOn: 'Delete pet'
+- assertVisible: 'Delete Milo?'
+- tapOn: 'Yes, delete Milo'
+- assertVisible: 'Your circle starts here'

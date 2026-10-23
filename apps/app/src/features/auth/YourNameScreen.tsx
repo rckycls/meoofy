@@ -68,6 +68,7 @@ export function YourNameScreen() {
   return (
     <AuthFrame stickers={['heart-paw']} title={text.title} body={text.body}>
       <Field
+        testID="name-input"
         label={copy.label}
         value={name}
         onChangeText={(value) => {

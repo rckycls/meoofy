@@ -172,6 +172,7 @@ export function PetForm({
           </View>
           <View style={styles.fields}>
             <Field
+              testID="pet-name-input"
               label={copy.fields.name}
               value={values.name}
               onChangeText={(name) => change('name', name)}
@@ -184,6 +185,7 @@ export function PetForm({
               onChange={(species) => change('species', species)}
             />
             <Field
+              testID="pet-breed-input"
               label={copy.fields.breed}
               value={values.breed}
               onChangeText={(breed) => change('breed', breed)}

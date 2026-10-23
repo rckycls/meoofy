@@ -10,7 +10,7 @@
     "typecheck": "pnpm -r typecheck && tsc -p tools",
     "lint": "eslint .",
     "test": "pnpm -r test",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e:web",
     "gen:tokens": "node tools/tokens/build-tokens.ts",
     "gen:fixtures": "node tools/fixtures/make-photo-fixtures.ts",
     "gen:stickers": "svgr --native --typescript --svgo-config tools/stickers/svgo.config.json --out-dir packages/ui/src/stickers/generated packages/ui/assets/stickers",
@@ -20,7 +20,9 @@
     "db:reset": "supabase db reset",
     "test:db": "supabase test db",
     "test:functions": "deno test supabase/functions/_shared",
-    "test:api": "pnpm --filter @pawpin/api test:int"
+    "test:api": "pnpm --filter @pawpin/api test:int",
+    "test:e2e:web": "pnpm --filter @pawpin/app test:e2e:web",
+    "test:e2e:ios": "pnpm --filter @pawpin/app test:e2e:ios"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
