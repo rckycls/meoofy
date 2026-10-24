@@ -187,6 +187,7 @@ do $$
 declare
   a uuid := current_setting('pawpin.a')::uuid;
   b uuid := current_setting('pawpin.b')::uuid;
+  event_id bigint;
 begin
   insert into registry.pets (id, owner_id, name, species)
   values ('a0000000-0000-4000-8000-000000000001', a, 'Milo', 'dog'),
@@ -195,8 +196,10 @@ begin
   values ('a0000000-0000-4000-8000-0000000000f1', 'a0000000-0000-4000-8000-000000000001', a,
           'front', a || '/a0000000-0000-4000-8000-000000000001/a0000000-0000-4000-8000-0000000000f1.jpg',
           1000);
-  insert into audit.events (actor_id, action, subject_type, subject_id)
-  values (a, 'pet.created', 'pet', 'a0000000-0000-4000-8000-000000000001');
+  insert into audit.events (actor_id, action, subject_type, subject_id, metadata)
+  values (a, 'pet.created', 'pet', 'a0000000-0000-4000-8000-000000000001', '{"species": "dog"}')
+  returning id into event_id;
+  perform set_config('pawpin.event', event_id::text, true);
 end
 $$;
 
@@ -350,10 +353,10 @@ select results_eq(
   $$ values (0, 0, 0, 0) $$,
   'deleting an auth user cascades to their profile, account, pets and photos');
 select results_eq(
-  $$ select actor_id, action, subject_type, subject_id from audit.events
-      where action = 'pet.created' and subject_id = 'a0000000-0000-4000-8000-000000000001' $$,
-  $$ values (null::uuid, 'pet.created', 'pet', 'a0000000-0000-4000-8000-000000000001'::uuid) $$,
-  'audit events outlive the user, with the user''s id stripped (Ruling 24)');
+  $$ select actor_id, action, subject_type, subject_id, metadata from audit.events
+      where id = current_setting('pawpin.event')::bigint $$,
+  $$ values (null::uuid, 'pet.created', 'pet', null::uuid, '{}'::jsonb) $$,
+  'audit events outlive the user with only the action and the time (Ruling 24, spec §10)');
 select is(
   (select count(*)::int from audit.events
     where current_setting('pawpin.a')::uuid in (actor_id, subject_id)),

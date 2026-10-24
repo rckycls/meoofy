@@ -1,13 +1,15 @@
 -- Photo write paths (api.request_photo_upload, api.confirm_photo, api.delete_photo), the read view
 -- api.pet_photos, the private pet-photos bucket and its storage.objects policies, the per-pet and
--- hourly limits, and the audit events. Uses tests.create_user / tests.authenticate_as /
--- tests.clear_auth from 000_helpers.sql.
+-- hourly limits, and the audit events, as 20261023000010_photo_reuse_and_cap.sql leaves them: a new
+-- photo for a view replaces that view's pending photo (Ruling 54). Uses tests.create_user /
+-- tests.authenticate_as / tests.clear_auth from 000_helpers.sql.
 --
--- Users: A owns Milo (the main photo lifecycle), Luna (the 6-photo limit) and Pip (extra photos);
--- B owns Rex and probes A's photos and files; R has six pets for the hourly limit; N loses its
--- account row. Pets are inserted as postgres, so the tier limit never interferes.
+-- Users: A owns Milo (the main photo lifecycle), Luna (the 6-photo limit), Pip (extra photos) and
+-- Bo (a pending photo replaced at the limit); B owns Rex and probes A's photos and files; R has six
+-- pets for the hourly limit; N loses its account row. Pets are inserted as postgres, so the tier
+-- limit never interferes.
 begin;
-select plan(147);
+select plan(164);
 
 do $$
 declare
@@ -25,6 +27,7 @@ begin
   values ('a4000000-0000-4000-8000-000000000001', a, 'Milo', 'dog'),
          ('a4000000-0000-4000-8000-000000000002', a, 'Luna', 'cat'),
          ('a4000000-0000-4000-8000-000000000003', a, 'Pip', 'dog'),
+         ('a4000000-0000-4000-8000-000000000004', a, 'Bo', 'dog'),
          ('b4000000-0000-4000-8000-000000000001', b, 'Rex', 'cat'),
          ('d4000000-0000-4000-8000-000000000001', n, 'Ghost', 'dog');
   insert into registry.pets (id, owner_id, name, species)
@@ -42,7 +45,11 @@ begin
        ('m1', a, 'a4000000-0000-4000-8000-000000000001', 'a4000000-0000-4000-8000-00000000f201'),
        ('x1', a, 'a4000000-0000-4000-8000-000000000003', 'a4000000-0000-4000-8000-00000000f301'),
        ('x2', a, 'a4000000-0000-4000-8000-000000000003', 'a4000000-0000-4000-8000-00000000f302'),
+       ('x3', a, 'a4000000-0000-4000-8000-000000000003', 'a4000000-0000-4000-8000-00000000f303'),
+       ('x4', a, 'a4000000-0000-4000-8000-000000000003', 'a4000000-0000-4000-8000-00000000f304'),
        ('l1', a, 'a4000000-0000-4000-8000-000000000002', 'a4000000-0000-4000-8000-00000000f401'),
+       ('bo_f', a, 'a4000000-0000-4000-8000-000000000004', 'a4000000-0000-4000-8000-00000000f504'),
+       ('bo_f2', a, 'a4000000-0000-4000-8000-000000000004', 'a4000000-0000-4000-8000-00000000f507'),
        ('b1', b, 'b4000000-0000-4000-8000-000000000001', 'b4000000-0000-4000-8000-00000000f001')
      ) v(k, o, p, ph);
 end
@@ -66,7 +73,22 @@ begin
 end
 $$;
 
-grant execute on function tests.upload(text), tests.row_count(text) to authenticated;
+-- Runs a statement that must fail as the current role and returns its error's DETAIL (null when
+-- it has none, or when the statement succeeds).
+create function tests.error_detail(statement text) returns text language plpgsql as $$
+declare
+  detail text;
+begin
+  execute statement;
+  return null;
+exception when others then
+  get stacked diagnostics detail = pg_exception_detail;
+  return detail;
+end
+$$;
+
+grant execute on function tests.upload(text), tests.row_count(text), tests.error_detail(text)
+  to authenticated;
 
 -- A second bucket, to prove the policies and confirm_photo only look at pet-photos.
 insert into storage.buckets (id, name) values ('pawpin-test-other', 'pawpin-test-other');
@@ -301,18 +323,35 @@ select results_eq(
   'rejected requests added no rows and no events'
 );
 
--- At most photosPerPet (6) non-rejected photos per pet (Luna).
+-- At most photosPerPet (6) non-rejected photos per pet (Luna). A new photo replaces a pending one
+-- of its view (Ruling 54), so Luna's three extra photos are ready ones, inserted as postgres.
+select tests.clear_auth();
+insert into registry.pet_photos (id, pet_id, owner_id, view, storage_path, bytes, status, width,
+                                 height, confirmed_at)
+select ('a4000000-0000-4000-8000-00000000f40' || n)::uuid, 'a4000000-0000-4000-8000-000000000002',
+       current_setting('pawpin.a')::uuid, 'extra',
+       current_setting('pawpin.a') || '/a4000000-0000-4000-8000-000000000002/a4000000-0000-4000-8000-00000000f40'
+         || n || '.jpg',
+       1000, 'ready', 1600, 1200, now()
+  from generate_series(4, 6) n;
+select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+
 select lives_ok(
   $$ select api.request_photo_upload(('a4000000-0000-4000-8000-00000000f40' || n)::uuid,
                                      'a4000000-0000-4000-8000-000000000002',
-                                     (array['front', 'side', 'markings', 'extra', 'extra', 'extra'])[n]::registry.photo_view,
+                                     (array['front', 'side', 'markings'])[n]::registry.photo_view,
                                      'image/jpeg', 1000)
-       from generate_series(1, 6) n $$,
-  'a pet may have 6 photos');
+       from generate_series(1, 3) n $$,
+  'a pet may have 6 photos: three ready extra photos and three pending ones');
 select throws_ok(
   $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f407',
                                      'a4000000-0000-4000-8000-000000000002', 'extra', 'image/jpeg', 1000) $$,
   'P0001', 'PAWPIN:VALIDATION', 'a 7th non-rejected photo throws VALIDATION');
+-- The client tells this refusal apart by its detail (packages/api isPhotoLimitReached).
+select is(tests.error_detail(
+  $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f407',
+                                     'a4000000-0000-4000-8000-000000000002', 'extra', 'image/jpeg', 1000) $$),
+  'a pet can have at most 6 photos', 'the limit refusal says so in its detail');
 
 select tests.clear_auth();
 update registry.pet_photos set status = 'rejected' where id = 'a4000000-0000-4000-8000-00000000f401';
@@ -325,7 +364,7 @@ select lives_ok(
 select results_eq(
   $$ select status::text, count(*)::int from api.pet_photos
       where pet_id = 'a4000000-0000-4000-8000-000000000002' group by 1 order by 1 $$,
-  $$ values ('pending', 6), ('rejected', 1) $$,
+  $$ values ('pending', 3), ('ready', 3), ('rejected', 1) $$,
   'Luna has 6 non-rejected photos and 1 rejected one'
 );
 
@@ -374,7 +413,7 @@ select tests.clear_auth();
 select results_eq(
   $$ select status::text, count(*)::int from registry.pet_photos
       where owner_id = current_setting('pawpin.a')::uuid group by 1 order by 1 $$,
-  $$ values ('pending', 9), ('rejected', 1) $$,
+  $$ values ('pending', 6), ('ready', 3), ('rejected', 1) $$,
   'A''s photos are untouched by B''s attempts'
 );
 
@@ -595,20 +634,23 @@ select results_eq(
   'the failed retake stays pending and the previous front photo stays ready'
 );
 
--- Extra photos are never replaced (Pip).
-select lives_ok(
-  $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f301',
-                                     'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000),
-            api.request_photo_upload('a4000000-0000-4000-8000-00000000f302',
-                                     'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000) $$,
-  'A requests two extra photos for Pip');
-select lives_ok(
-  $$ select tests.upload(current_setting('pawpin.path_x1')),
-            tests.upload(current_setting('pawpin.path_x2')) $$,
-  'A uploads both extra photos');
+-- Confirmed extra photos are never replaced (Pip). A pending extra photo is replaced by the next
+-- extra request like any other view's (Ruling 54), so extras are added one at a time.
+select is(
+  api.request_photo_upload('a4000000-0000-4000-8000-00000000f301',
+                           'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000),
+  current_setting('pawpin.path_x1'), 'A requests an extra photo for Pip');
+select lives_ok($$ select tests.upload(current_setting('pawpin.path_x1')) $$,
+  'A uploads the first extra photo');
 select lives_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f301', 1600, 1200, 150, 120) $$,
   'A confirms the first extra photo');
+select is(
+  api.request_photo_upload('a4000000-0000-4000-8000-00000000f302',
+                           'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000),
+  current_setting('pawpin.path_x2'), 'A requests a second extra photo for Pip');
+select lives_ok($$ select tests.upload(current_setting('pawpin.path_x2')) $$,
+  'A uploads the second extra photo');
 select lives_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f302', 1600, 1200, 150, 120) $$,
   'A confirms the second extra photo');
@@ -683,6 +725,101 @@ select results_eq(
 );
 
 -- ---------------------------------------------------------------------------
+-- A new photo replaces its view's pending photo (Ruling 54, user A)
+-- ---------------------------------------------------------------------------
+-- Uploads that fail or are given up on leave pending photos, which count toward the limit until
+-- cleanup removes them a day later. A request for a view first retires the caller's other pending
+-- photos of that pet and view (their paths are queued for cleanup), so they can't fill the limit.
+-- Bo starts with a ready front, side and markings photo, inserted as postgres.
+select tests.clear_auth();
+insert into registry.pet_photos (id, pet_id, owner_id, view, storage_path, bytes, status, width,
+                                 height, confirmed_at)
+select ('a4000000-0000-4000-8000-00000000f50' || n)::uuid, 'a4000000-0000-4000-8000-000000000004',
+       current_setting('pawpin.a')::uuid, (array['front', 'side', 'markings'])[n]::registry.photo_view,
+       current_setting('pawpin.a') || '/a4000000-0000-4000-8000-000000000004/a4000000-0000-4000-8000-00000000f50'
+         || n || '.jpg',
+       1000, 'ready', 1600, 1200, now()
+  from generate_series(1, 3) n;
+select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+
+select lives_ok(
+  $$ select api.request_photo_upload(('a4000000-0000-4000-8000-00000000f50' || n)::uuid,
+                                     'a4000000-0000-4000-8000-000000000004',
+                                     (array['front', 'side', 'markings'])[n - 3]::registry.photo_view,
+                                     'image/jpeg', 1000)
+       from generate_series(4, 6) n $$,
+  'A opens a new front, side and markings photo for Bo and leaves them pending');
+select results_eq(
+  $$ select status::text, count(*)::int from api.pet_photos
+      where pet_id = 'a4000000-0000-4000-8000-000000000004' group by 1 order by 1 $$,
+  $$ values ('pending', 3), ('ready', 3) $$,
+  'Bo is at the limit: three ready photos and three pending ones');
+
+select is(
+  api.request_photo_upload('a4000000-0000-4000-8000-00000000f507',
+                           'a4000000-0000-4000-8000-000000000004', 'front', 'image/jpeg', 1000),
+  current_setting('pawpin.path_bo_f2'),
+  'at the limit, a new front photo replaces the pending front photo instead of being refused');
+select results_eq(
+  $$ select id, view::text, status::text from api.pet_photos
+      where pet_id = 'a4000000-0000-4000-8000-000000000004' order by id $$,
+  $$ values ('a4000000-0000-4000-8000-00000000f501'::uuid, 'front', 'ready'),
+            ('a4000000-0000-4000-8000-00000000f502'::uuid, 'side', 'ready'),
+            ('a4000000-0000-4000-8000-00000000f503'::uuid, 'markings', 'ready'),
+            ('a4000000-0000-4000-8000-00000000f505'::uuid, 'side', 'pending'),
+            ('a4000000-0000-4000-8000-00000000f506'::uuid, 'markings', 'pending'),
+            ('a4000000-0000-4000-8000-00000000f507'::uuid, 'front', 'pending') $$,
+  'the old pending front photo is gone; the ready photos and the other views'' pending ones stay');
+
+select is(
+  api.request_photo_upload('a4000000-0000-4000-8000-00000000f507',
+                           'a4000000-0000-4000-8000-000000000004', 'front', 'image/jpeg', 1000),
+  current_setting('pawpin.path_bo_f2'), 'a retried request with the same id still returns its slot');
+select results_eq(
+  $$ select (select count(*)::int from api.pet_photos
+              where pet_id = 'a4000000-0000-4000-8000-000000000004'),
+            (select count(*)::int from audit.events
+              where subject_id = 'a4000000-0000-4000-8000-00000000f507') $$,
+  $$ values (6, 1) $$,
+  'the retry replaced nothing and wrote no event');
+select results_eq(
+  $$ select action, count(*)::int from audit.events
+      where subject_id = 'a4000000-0000-4000-8000-00000000f504' group by action $$,
+  $$ values ('photo.upload_requested', 1) $$,
+  'replacing a pending photo writes no event of its own, as cleanup''s expiry does not');
+select throws_ok(
+  $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f504',
+                                     'a4000000-0000-4000-8000-000000000004', 'front', 'image/jpeg', 1000) $$,
+  'P0001', 'PAWPIN:VALIDATION',
+  'the replaced photo''s id is refused while its path waits for cleanup (Ruling 26)');
+
+-- Extra photos too: Pip's pending extra is replaced by the next one; its ready extras never are.
+select is(
+  api.request_photo_upload('a4000000-0000-4000-8000-00000000f303',
+                           'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000),
+  current_setting('pawpin.path_x3'), 'A requests a third extra photo for Pip and leaves it pending');
+select is(
+  api.request_photo_upload('a4000000-0000-4000-8000-00000000f304',
+                           'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000),
+  current_setting('pawpin.path_x4'), 'A requests a fourth extra photo for Pip');
+select results_eq(
+  $$ select id, status::text from api.pet_photos
+      where pet_id = 'a4000000-0000-4000-8000-000000000003' order by id $$,
+  $$ values ('a4000000-0000-4000-8000-00000000f301'::uuid, 'ready'),
+            ('a4000000-0000-4000-8000-00000000f302'::uuid, 'ready'),
+            ('a4000000-0000-4000-8000-00000000f304'::uuid, 'pending') $$,
+  'the fourth replaced the pending third; the ready extra photos stay');
+
+select tests.clear_auth();
+select results_eq(
+  $$ select storage_path, attempts from registry.storage_deletions
+      where storage_path in (current_setting('pawpin.path_bo_f'), current_setting('pawpin.path_x3'))
+      order by id $$,
+  $$ values (current_setting('pawpin.path_bo_f'), 0), (current_setting('pawpin.path_x3'), 0) $$,
+  'each replaced pending photo''s path is queued for the cleanup job'
+);
+
+-- ---------------------------------------------------------------------------
 -- The hourly upload limit (user R, six pets)
 -- ---------------------------------------------------------------------------
 select tests.authenticate_as(current_setting('pawpin.r')::uuid);
@@ -697,10 +834,11 @@ select throws_ok(
   $$ select api.request_photo_upload('c4000000-0000-4000-8000-00000000f001',
                                      'c4000000-0000-4000-8000-000000000006', 'front', 'image/jpeg', 1000) $$,
   'P0001', 'PAWPIN:RATE_LIMITED', 'the 31st request within an hour throws RATE_LIMITED');
+-- Each of pets 1 to 5 keeps one pending extra photo: each request replaced the one before it.
 select results_eq(
   $$ select (select count(*)::int from api.pet_photos),
             (select count(*)::int from audit.events where action = 'photo.upload_requested') $$,
-  $$ values (30, 30) $$,
+  $$ values (5, 30) $$,
   'the refused request added no row and no event'
 );
 
@@ -729,6 +867,16 @@ select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'c4000000-0000-4000-8000-000000000006',
                                      'side', 'image/jpeg', 1000) $$,
   'P0001', 'PAWPIN:RATE_LIMITED', 'the hour rolls: 30 requests in the last hour throw RATE_LIMITED again');
+select throws_ok(
+  $$ select api.request_photo_upload(gen_random_uuid(), 'c4000000-0000-4000-8000-000000000006',
+                                     'front', 'image/jpeg', 1000) $$,
+  'P0001', 'PAWPIN:RATE_LIMITED', 'a new front photo for that pet is refused as well');
+select results_eq(
+  $$ select id, status::text from api.pet_photos
+      where pet_id = 'c4000000-0000-4000-8000-000000000006' $$,
+  $$ values ('c4000000-0000-4000-8000-00000000f001'::uuid, 'pending') $$,
+  'a refused request replaces nothing: the pending front photo stays'
+);
 
 select tests.clear_auth();
 update audit.events set created_at = now() - interval '59 minutes'
@@ -764,7 +912,7 @@ select tests.clear_auth();
 select results_eq(
   $$ select action, count(*)::int from audit.events
       where actor_id = current_setting('pawpin.a')::uuid group by action order by action $$,
-  $$ values ('photo.added', 5), ('photo.deleted', 3), ('photo.upload_requested', 15) $$,
+  $$ values ('photo.added', 5), ('photo.deleted', 3), ('photo.upload_requested', 18) $$,
   'each of A''s successful calls wrote exactly one event, and refused calls and retries wrote none'
 );
 select results_eq(

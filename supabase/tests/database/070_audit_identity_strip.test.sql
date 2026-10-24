@@ -1,12 +1,17 @@
--- Deleting an auth user strips their id from the audit trail (20261023000009_audit_identity_strip.sql,
--- spec §10, Ruling 24): the AFTER DELETE trigger on auth.users nulls actor_id and subject_id wherever
--- they hold the deleted user's id, keeps everything else, and leaves audit.events append-only for
--- clients. Uses tests.create_user / tests.authenticate_as / tests.clear_auth from 000_helpers.sql.
+-- Deleting an auth user strips their identity from the audit trail and purges their rejected
+-- sign-ups (spec §10: "The audit trail keeps only the action and the time"; Ruling 24, and M1/M2
+-- of the final review): the AFTER DELETE trigger on auth.users (20261023000009_audit_identity_strip.sql,
+-- as 20261023000010_photo_reuse_and_cap.sql redefines it) clears the actor, subject and metadata of
+-- every event the user acted in, clears the subject and metadata of every event about the user or
+-- about anything the user acted on (their profile, pets and photos), keeps other users' ids, and
+-- deletes the identity.signup_rejections rows for the user's email. audit.events stays append-only
+-- for clients. Uses tests.create_user / tests.authenticate_as / tests.clear_auth from 000_helpers.sql.
 --
--- U is deleted; K is kept. U acts (profile, onboarding, a pet), K acts on their own profile, K
--- appears as the actor of an event about U, and the system records account.deleted.
+-- U is deleted; K is kept. U acts (profile, onboarding, a pet, a photo), K acts on their own
+-- profile and pet, K appears as the actor of an event about U, the system records an event about
+-- U's photo and account.deleted, and both have rejected sign-ups logged.
 begin;
-select plan(18);
+select plan(22);
 
 do $$
 begin
@@ -53,24 +58,38 @@ select lives_ok($$ select api.complete_onboarding('owner') $$,
 select lives_ok(
   $$ select api.create_pet('a7000000-0000-4000-8000-000000000001', 'Milo', 'dog', null, null) $$,
   'U creates a pet (U is actor, the pet is the subject)');
+select lives_ok(
+  $$ select api.request_photo_upload('a7000000-0000-4000-8000-00000000f001',
+       'a7000000-0000-4000-8000-000000000001', 'front', 'image/jpeg', 1000) $$,
+  'U opens a photo upload (U is actor, the photo is the subject)');
 select tests.authenticate_as(current_setting('pawpin.k')::uuid);
 select lives_ok($$ select api.update_profile('Kai') $$, 'K updates their own profile');
+select lives_ok(
+  $$ select api.create_pet('a7000000-0000-4000-8000-000000000002', 'Kit', 'cat', null, null) $$,
+  'K creates a pet of their own');
 select tests.clear_auth();
 
--- An event by K about U, and the system's account.deleted (no actor, no subject).
-insert into audit.events (actor_id, action, subject_type, subject_id)
-values (current_setting('pawpin.k')::uuid, 'user.reported', 'user', current_setting('pawpin.u')::uuid);
+-- An event by K about U, a system event about U's photo, and the system's account.deleted (no
+-- actor, no subject).
+insert into audit.events (actor_id, action, subject_type, subject_id, metadata)
+values (current_setting('pawpin.k')::uuid, 'user.reported', 'user', current_setting('pawpin.u')::uuid,
+        '{"reason": "spam"}'),
+       (null, 'photo.expired', 'photo', 'a7000000-0000-4000-8000-00000000f001', '{"view": "front"}');
 set local role service_role;
-select api.record_account_deleted();
+do $$ begin perform api.record_account_deleted(); end $$;
 reset role;
+
+-- Rejected sign-ups: U's address (logged before U was invited, in another case) and K's.
+insert into identity.signup_rejections (email)
+values ('Strip-U@Pawpin.test'), ('strip-u@pawpin.test'), ('strip-k@pawpin.test');
 
 select is(
   (select count(*)::int from audit.events
     where current_setting('pawpin.u')::uuid in (actor_id, subject_id)),
-  4, 'before the delete, four events reference U');
+  5, 'before the delete, five events reference U');
 
 create temp table before_delete as
-select id, action, subject_type, metadata, created_at
+select id, action, subject_type, created_at
   from audit.events where id > current_setting('pawpin.last_event')::bigint;
 
 -- ---------------------------------------------------------------------------
@@ -83,22 +102,37 @@ select is(
   (select count(*)::int from audit.events
     where current_setting('pawpin.u')::uuid in (actor_id, subject_id)),
   0, 'no event references U in actor_id or subject_id any more');
+select is(
+  (select count(*)::int from audit.events
+    where subject_id in ('a7000000-0000-4000-8000-000000000001',
+                         'a7000000-0000-4000-8000-00000000f001')),
+  0, 'no event references U''s pet or photo any more');
 select results_eq(
-  $$ select id, action, subject_type, metadata, created_at from audit.events
+  $$ select id, action, subject_type, created_at from audit.events
       where id > current_setting('pawpin.last_event')::bigint order by id $$,
-  $$ select id, action, subject_type, metadata, created_at from before_delete order by id $$,
-  'every event survives with its action, subject type, metadata and time'
+  $$ select id, action, subject_type, created_at from before_delete order by id $$,
+  'every event survives with its action, subject type and time'
 );
 select results_eq(
-  $$ select action, actor_id, subject_id from audit.events
+  $$ select action, actor_id, subject_id, metadata from audit.events
       where id > current_setting('pawpin.last_event')::bigint order by id $$,
-  $$ values ('profile.updated', null::uuid, null::uuid),
-            ('onboarding.completed', null, null),
-            ('pet.created', null, 'a7000000-0000-4000-8000-000000000001'::uuid),
-            ('profile.updated', current_setting('pawpin.k')::uuid, current_setting('pawpin.k')::uuid),
-            ('user.reported', current_setting('pawpin.k')::uuid, null),
-            ('account.deleted', null, null) $$,
-  'only U''s id is stripped: other users and other subjects keep theirs'
+  $$ values ('profile.updated', null::uuid, null::uuid, '{}'::jsonb),
+            ('onboarding.completed', null, null, '{}'),
+            ('pet.created', null, null, '{}'),
+            ('photo.upload_requested', null, null, '{}'),
+            ('profile.updated', current_setting('pawpin.k')::uuid, current_setting('pawpin.k')::uuid, '{}'),
+            ('pet.created', current_setting('pawpin.k')::uuid,
+             'a7000000-0000-4000-8000-000000000002'::uuid, '{"species": "cat"}'),
+            ('user.reported', current_setting('pawpin.k')::uuid, null, '{}'),
+            ('photo.expired', null, null, '{}'),
+            ('account.deleted', null, null, '{}') $$,
+  'U''s events keep only the action and the time; events about U lose their subject and metadata; K keeps everything of theirs'
+);
+select results_eq(
+  $$ select email::text from identity.signup_rejections
+      where email::text ilike 'strip-%@pawpin.test' order by 1 $$,
+  $$ values ('strip-k@pawpin.test') $$,
+  'U''s rejected sign-ups are deleted, whatever their case; K''s stay'
 );
 select results_eq(
   $$ select actor_id, subject_id, metadata from audit.events

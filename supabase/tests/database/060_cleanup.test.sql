@@ -2,17 +2,24 @@
 -- registry.enqueue_stale_photos, registry.claim_storage_deletions,
 -- registry.complete_storage_deletions, the service_role-only api wrappers the Edge Functions call
 -- (Ruling 16) including api.record_account_deleted, the rule that a queued path a photo row
--- references again is never handed out (Ruling 20), and the storage-cleanup cron job. Uses
--- tests.create_user / tests.authenticate_as / tests.clear_auth from 000_helpers.sql.
+-- references again is never handed out (Ruling 20), the refusal of a photo id whose path is still
+-- queued (Ruling 26, 20261023000010_photo_reuse_and_cap.sql), and the storage-cleanup cron job.
+-- Uses tests.create_user / tests.authenticate_as / tests.clear_auth from 000_helpers.sql.
 --
 -- User A owns Milo. Fixture photo rows and files are inserted as postgres (which bypasses row-level
 -- security), so created_at can be set in the past.
 begin;
-select plan(57);
+select plan(59);
 
 -- The queue may hold rows from manual runs against this database. Empty it inside this
 -- transaction so the claims below see only this file's rows.
 delete from registry.storage_deletions;
+
+-- Statistics that say the queue is empty, as a quiet database ends up with, once made the planner
+-- rescan the claim's locking subquery for every row, so a claim handed out more than `max` rows.
+-- Analyzing the emptied queue gives the claims below those statistics. (ANALYZE's row estimate
+-- outlives the rollback; it is only a planner estimate, and autovacuum refreshes it.)
+analyze registry.storage_deletions;
 
 -- Records a file at `path` in pet-photos as the current role, the way Storage does after an
 -- upload (row-level security applies). Only the row is written; no bytes are stored.
@@ -136,6 +143,9 @@ select results_eq(
   'only service_role may execute them: not anon, not authenticated, not PUBLIC'
 );
 
+select has_index('registry', 'storage_deletions', 'storage_deletions_storage_path_idx',
+  'storage_path', 'queue rows are found by path through an index (request_photo_upload, the orphan scan)');
+
 select tests.authenticate_as(current_setting('pawpin.a')::uuid);
 select throws_ok($$ select api.record_account_deleted() $$, '42501', null,
   'authenticated cannot call api.record_account_deleted');
@@ -223,8 +233,10 @@ select throws_ok($$ select * from registry.claim_storage_deletions(null) $$, '22
   'max is required');
 
 -- ---------------------------------------------------------------------------
--- Ruling 20: a path that a photo row references again is never handed out
+-- Ruling 26: a photo id whose path is queued for deletion is refused until cleanup is done
 -- ---------------------------------------------------------------------------
+-- Otherwise a reused id could be confirmed against the old file between a claim and its removal,
+-- and cleanup would then delete the file behind a ready photo.
 select tests.authenticate_as(current_setting('pawpin.a')::uuid);
 select is(
   api.request_photo_upload('a6000000-0000-4000-8000-00000000f007',
@@ -236,17 +248,53 @@ select is(
   'ready', 'A confirms the photo');
 select lives_ok($$ select api.delete_photo('a6000000-0000-4000-8000-00000000f007') $$,
   'A deletes the photo, which queues its path');
+select throws_ok(
+  $$ select api.request_photo_upload('a6000000-0000-4000-8000-00000000f007',
+       current_setting('pawpin.pet')::uuid, 'extra', 'image/jpeg', 1000) $$,
+  'P0001', 'PAWPIN:VALIDATION', 'while its path is queued, the same photo id is refused');
+select throws_ok(
+  $$ select api.request_photo_upload('a6000000-0000-4000-8000-00000000f007',
+       current_setting('pawpin.pet')::uuid, 'front', 'image/jpeg', 1000) $$,
+  'P0001', 'PAWPIN:VALIDATION', 'for any view');
+select tests.clear_auth();
+
+select results_eq(
+  $$ select (select count(*)::int from registry.pet_photos
+              where id = 'a6000000-0000-4000-8000-00000000f007'),
+            pg_temp.queued('reused') $$,
+  $$ values (0, 1) $$,
+  'the refused requests added no row and left the queued path alone'
+);
+
+-- The cleanup job removes the file (Storage deletes its storage.objects row), then completes the
+-- queue row.
+do $$
+begin
+  perform set_config('storage.allow_delete_query', 'true', true);
+  delete from storage.objects
+   where bucket_id = 'pet-photos' and name = current_setting('pawpin.reused');
+  perform set_config('storage.allow_delete_query', 'false', true);
+  perform registry.complete_storage_deletions(
+    array(select d.id from registry.storage_deletions d
+           where d.storage_path = current_setting('pawpin.reused')),
+    null);
+end
+$$;
+
+select tests.authenticate_as(current_setting('pawpin.a')::uuid);
 select is(
   api.request_photo_upload('a6000000-0000-4000-8000-00000000f007',
     current_setting('pawpin.pet')::uuid, 'extra', 'image/jpeg', 1000),
   current_setting('pawpin.reused'),
-  'A reuses the same photo id, so the same path is referenced again');
-select is(
-  (select status::text from api.confirm_photo('a6000000-0000-4000-8000-00000000f007', 1600, 1200, 120, 120)),
-  'ready', 'A confirms it against the file that is still in storage');
+  'once cleanup has removed the file and completed its row, the id can be used again');
 select tests.clear_auth();
 
-select is(pg_temp.queued('reused'), 1, 'the queue still holds the path from the delete');
+-- ---------------------------------------------------------------------------
+-- Ruling 20: a path that a photo row references again is never handed out
+-- ---------------------------------------------------------------------------
+-- The api functions no longer queue such a path (Ruling 26), but a queue row written before that
+-- rule, or by hand, can still name one.
+insert into registry.storage_deletions (storage_path) values (current_setting('pawpin.reused'));
 
 create temp table claimed_after_reuse as select * from registry.claim_storage_deletions(10);
 
@@ -263,7 +311,7 @@ select results_eq(
 select results_eq(
   $$ select status::text from registry.pet_photos
       where id = 'a6000000-0000-4000-8000-00000000f007' $$,
-  $$ values ('ready') $$, 'the reused photo stays ready, its file safe');
+  $$ values ('pending') $$, 'the photo that references the path is kept');
 
 -- ---------------------------------------------------------------------------
 -- complete_storage_deletions
