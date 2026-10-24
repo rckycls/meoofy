@@ -1,7 +1,8 @@
-# The same checks as `pnpm verify` on a laptop (spec section 11), plus the layers that the root
-# `verify` script leaves out because they need Deno or a database: pgTAP, the Edge Function unit
-# tests, `deno check` and the API integration tests. The iOS end-to-end flow (Maestro) is not run
-# here: it needs a Mac and a simulator, so it runs by hand before each TestFlight build.
+# Runs `pnpm verify`, the same command as on a laptop (spec section 11): typecheck (with `deno
+# check` of the Edge Functions), lint, unit tests, the Edge Function tests, pgTAP, the API
+# integration tests and the web end-to-end tests. The steps before it only set up what it needs:
+# Node, pnpm, Deno, Chromium and the local Supabase stack. The iOS end-to-end flow (Maestro) is not
+# run here: it needs a Mac and a simulator, so it runs by hand before each TestFlight build.
 name: verify
 
 on:
@@ -62,25 +63,9 @@ jobs:
             echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$(value ANON_KEY)"
           } >> "$GITHUB_ENV"
 
-      # Database tests first, on the database exactly as the migrations leave it.
-      - name: Database tests (pgTAP)
-        run: pnpm test:db
-
-      - name: Edge Function unit tests
-        run: pnpm test:functions
-
-      - name: Type-check the Edge Functions
-        run: >-
-          deno check
-          supabase/functions/delete-account/index.ts
-          supabase/functions/storage-cleanup/index.ts
-
-      # typecheck, lint, unit tests, then the web end-to-end tests (Playwright at 390 and 1440 px).
+      # Every layer, in the order the root `verify` script runs them.
       - name: Verify
         run: pnpm verify
-
-      - name: API integration tests
-        run: pnpm test:api
 
       - name: Keep the end-to-end traces of a failed run
         if: failure()
