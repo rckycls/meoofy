@@ -46,6 +46,12 @@ pnpm --filter @pawpin/app web          # the web app in a browser
 pnpm --filter @pawpin/app ios          # the iOS app in the simulator (see "iOS native notes")
 ```
 
+The app depends on `expo-dev-client`, so `expo start` (and the `ios` script above) opens a development
+build of PawPin, not Expo Go. Make that build once with `expo run:ios` (see
+[iOS native notes](#ios-native-notes)), or start with `--go` to use Expo Go instead:
+`pnpm --filter @pawpin/app exec expo start --go`. The web is not affected: the `web` script runs
+`expo start --web`, which opens the app in a browser.
+
 Sign-in codes are emailed to a local inbox, [Mailpit](http://127.0.0.1:54324). The pilot is
 invite-only even locally: `supabase/seed.sql` allowlists `owner@pawpin.test` and `e2e@pawpin.test`.
 To use another address, insert it into `identity.pilot_allowlist`.
@@ -67,27 +73,34 @@ They are public: Expo copies them into the app. A service-role key never belongs
 pnpm verify
 ```
 
-runs typecheck, lint, every unit test and the web end-to-end tests. It needs:
+runs every automated layer (spec section 11), stopping at the first that fails:
+
+| Command | Layer |
+|---|---|
+| `pnpm typecheck` | TypeScript in every package |
+| `pnpm typecheck:functions` | `deno check` of the two Edge Function entry points |
+| `pnpm lint` | ESLint |
+| `pnpm test` | Unit tests: Vitest (`core`, `api`) and Jest (`ui`, `app`) |
+| `pnpm test:functions` | Deno tests for the Edge Function logic |
+| `pnpm test:db` | pgTAP: row-level security, every function, limits under concurrency |
+| `pnpm test:api` | Integration tests of `packages/api` against the local stack |
+| `pnpm test:e2e:web` | The web end-to-end tests (below) |
+
+Each command also runs on its own. `verify` works on the database as it is: it never resets it, and the
+database tests only look at their own rows, so it passes again on a database it (or you) has already
+used. It needs:
 
 - the local Supabase stack running (`pnpm db:start`);
+- Deno;
 - Chromium for Playwright: `pnpm --filter @pawpin/app exec playwright install chromium`;
 - `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`, from `apps/app/.env` or exported in
   the shell (CI exports them from `supabase status -o env`, because `.env` is git-ignored).
 
-Four more layers are not part of `verify` (they need Deno, or are slower). CI runs all of them, in
-[`.github/workflows/verify.yml`](.github/workflows/verify.yml):
+The Deno scripts set `DENO_NO_PACKAGE_JSON=1`: Deno 2.9 would otherwise rewrite `package.json` while
+resolving `npm:` imports. Set it yourself for any other Deno command here.
 
-| Command | Layer |
-|---|---|
-| `pnpm test:db` | pgTAP: row-level security, every function, limits under concurrency |
-| `pnpm test:functions` | Deno tests for the Edge Function logic |
-| `DENO_NO_PACKAGE_JSON=1 deno check supabase/functions/*/index.ts` | Type-check the two Edge Function entry points |
-| `pnpm test:api` | Integration tests of `packages/api` against the local stack |
-
-Set `DENO_NO_PACKAGE_JSON=1` for any `deno check` here: Deno 2.9 would otherwise rewrite
-`package.json` while resolving `npm:` imports.
-
-CI runs on every push to `main` and every pull request. It cannot run the iOS end-to-end flow
+CI ([`.github/workflows/verify.yml`](.github/workflows/verify.yml)) starts the stack and runs the same
+`pnpm verify`, on every push to `main` and every pull request. It cannot run the iOS end-to-end flow
 (below), which needs a Mac.
 
 ## End-to-end tests
@@ -163,7 +176,7 @@ that `apps/app/dist` neither points at `127.0.0.1:54321` nor has `EXPO_PUBLIC_E2
 
 | Profile | For | Notes |
 |---|---|---|
-| `development` | A development client | `developmentClient: true`, `EXPO_PUBLIC_E2E=1`. Needs `expo-dev-client`, which the app depends on (pinned). Its config plugin adds a local-network purpose string and an `exp+pawpin` URL scheme to every build's Info.plist, production included; the launcher itself is left out of Release builds |
+| `development` | A development client | `developmentClient: true`, `EXPO_PUBLIC_E2E=1`. Needs `expo-dev-client`, which the app depends on (pinned). Its config plugin adds a local-network purpose string (`NSLocalNetworkUsageDescription`), an `_expo._tcp` entry in `NSBonjourServices` and an `exp+pawpin` URL scheme to the Info.plist; a build phase strips the first two from Release builds, so only the scheme ships in production, where it does nothing but open the app. The launcher itself is left out of Release builds |
 | `preview` | Internal testing builds | `distribution: internal` |
 | `production` | TestFlight and the App Store | `autoIncrement: true`, and never `EXPO_PUBLIC_E2E` |
 
@@ -225,14 +238,16 @@ Builds read their `EXPO_PUBLIC_*` values from the EAS environment of the same na
 
 ## Database rules
 
-- **Never edit `supabase/migrations/20261023000000_limits.sql` after it has shipped.** Migrations that
-  have been applied do not run again on a hosted database, so an edit would change only your local copy.
-  Any change to the limits (`LIMITS` in `packages/core`, or the tier pet limits) goes in a **new**,
-  timestamped migration (`supabase migration new ...`) that re-creates `registry.limits()` with
-  `create or replace function`. Do not run `pnpm gen:sql-limits` once the file has shipped: it rewrites
-  that file. The parity test in `packages/core/src/sqlLimits.test.ts` compares the file with the
-  generator's output, so a real limits change must also teach the generator and that test about the
-  new migration.
+- **Never edit a migration that has shipped**, `supabase/migrations/20261023000000_limits.sql` included.
+  Migrations that have been applied do not run again on a hosted database, so an edit would change only
+  your local copy.
+- **Changing the limits** (`LIMITS` in `packages/core`, or the tier pet limits) makes the parity test in
+  `packages/core/src/sqlLimits.test.ts` fail. Run `pnpm gen:sql-limits`: it writes a **new** migration,
+  `<UTC timestamp>_limits.sql`, that re-creates `registry.limits()` with `create or replace function`
+  and brings the `pet-photos` bucket's size cap up to date. It never overwrites a migration, and it
+  writes nothing when the newest migration that defines `registry.limits()` already matches; the parity
+  test always checks that newest one. Commit the new file and apply it with `supabase migration up`
+  locally (or `pnpm db:push`).
 - A change to the auth hook in `supabase/config.toml` needs `supabase stop && supabase start` locally. On
   the hosted project the hook is switched on in the dashboard (Authentication, Hooks).
 - Do not use `supabase config push`: it would copy the local `config.toml`, with its raised sign-in rate
@@ -256,8 +271,9 @@ Things only the owner can do, or must decide:
 4. **Regenerate the Apple sign-in secret** within six months of creating it and paste it into Supabase,
    or web sign-in stops working.
 5. **Check hosted sign-in email limits.** Hosted Auth allows one code email per address per 60 seconds
-   by default, while the app offers "Resend code" after 30 seconds, so an early resend shows "Take a short
-   break". The defaults are kept on purpose.
+   by default, and the app offers "Resend code" after the same 60 seconds. The defaults are kept on
+   purpose; if you change the hosted limit, change `RESEND_AFTER` in
+   `apps/app/src/features/auth/EmailCodeScreen.tsx` with it.
 6. **Watch the Supabase spend** against the US$200 a month budget target.
 7. **Reload a pet's profile, photos and edit pages on the hosted web app** after the first deploy. If
    they 404, switch `web.output` to `'server'` (see "Hosted web notes").
