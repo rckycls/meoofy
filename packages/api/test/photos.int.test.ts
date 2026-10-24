@@ -6,12 +6,13 @@ import {
   createPet,
   deletePet,
   deletePhoto,
+  isPhotoLimitReached,
   listPhotos,
   uploadPhoto,
   type PawpinClient,
   type PetPhoto,
 } from '../src'
-import { cleanup, makeTestJpeg, newOwner, queuedPaths } from './helpers'
+import { cleanup, makeTestJpeg, newOwner, queuedPaths, sql } from './helpers'
 
 afterAll(cleanup)
 
@@ -145,6 +146,53 @@ describe('uploading a reference photo', () => {
       code: 'NOT_OWNER',
     })
     expect(await listPhotos(a.client, a.petId)).toHaveLength(1)
+  })
+})
+
+describe('refused and replaced upload slots', () => {
+  it('a new photo for a view replaces the photo left pending there, and queues its file', async () => {
+    const { client, userId, petId } = await ownerWithPet()
+    await expect(
+      uploadPhoto(client, { ...photoUpload(petId, 'front', 1), height: 600 }),
+    ).rejects.toMatchObject({ code: 'PHOTO_QUALITY' })
+
+    const second = await uploadPhoto(client, photoUpload(petId, 'front', 2))
+
+    expect(await listPhotos(client, petId)).toEqual([{ ...second, signedUrl: expect.any(String) }])
+    expect(await queuedPaths(userId, petId)).toBe(1)
+  })
+
+  it("a deleted photo's id is refused (VALIDATION) until cleanup has removed its file", async () => {
+    const { client, petId } = await ownerWithPet()
+    const upload = photoUpload(petId, 'side')
+    const photo = await uploadPhoto(client, upload)
+    await deletePhoto(client, photo.id)
+
+    const error = await uploadPhoto(client, upload).catch((e: unknown) => e)
+
+    expect(error).toMatchObject({ name: 'AppError', code: 'VALIDATION', retryable: false })
+    expect(isPhotoLimitReached(error)).toBe(false)
+    expect(await listPhotos(client, petId)).toEqual([])
+  })
+
+  it('a pet with as many photos as it may keep refuses a new one, and the app can tell why', async () => {
+    const { client, userId, petId } = await ownerWithPet()
+    // Ready extra photos, written as postgres: through the API a pet holds one pending photo per
+    // view at most, so only ready photos fill it up.
+    await sql(
+      `insert into registry.pet_photos
+         (id, pet_id, owner_id, view, storage_path, bytes, status, width, height, confirmed_at)
+       select gen_random_uuid(), $1::uuid, $2::uuid, 'extra',
+              $2::text || '/' || $1::text || '/' || gen_random_uuid() || '.jpg',
+              1000, 'ready', 1600, 1200, now()
+         from generate_series(1, $3::int)`,
+      [petId, userId, LIMITS.photosPerPet],
+    )
+
+    const error = await uploadPhoto(client, photoUpload(petId, 'front')).catch((e: unknown) => e)
+
+    expect(error).toMatchObject({ name: 'AppError', code: 'VALIDATION', retryable: false })
+    expect(isPhotoLimitReached(error)).toBe(true)
   })
 })
 

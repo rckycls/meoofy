@@ -1,8 +1,8 @@
 // Photos without a network: the request → upload → confirm sequence, the storage call it makes
 // (Ruling 21), signed URLs, row mapping and validation before requests.
-import { LIMITS, type PhotoView } from '@pawpin/core'
+import { AppError, LIMITS, type PhotoView } from '@pawpin/core'
 import { describe, expect, it, vi } from 'vitest'
-import { deletePhoto, listPhotos, uploadPhoto } from './index'
+import { deletePhoto, isPhotoLimitReached, listPhotos, uploadPhoto } from './index'
 import { offline, stubClient, type Fetch } from './testSupport'
 
 const OWNER = '0b0b0b0b-1111-4222-8333-944455556666'
@@ -235,6 +235,50 @@ describe('uploadPhoto', () => {
       name: 'AppError',
       code: 'PHOTO_QUALITY',
     })
+  })
+})
+
+describe('isPhotoLimitReached', () => {
+  /** A server that refuses the upload slot with `body`, as PostgREST relays a raised exception. */
+  const refusingSlot =
+    (body: object): Fetch =>
+    async (input) =>
+      new URL(String(input)).pathname === '/rest/v1/rpc/request_photo_upload'
+        ? json(400, body)
+        : json(200, [])
+
+  const refusal = (details: string | null) =>
+    uploadPhoto(
+      stubClient(
+        refusingSlot({ code: 'P0001', message: 'PAWPIN:VALIDATION', details, hint: null }),
+      ),
+      args,
+    ).catch((e: unknown) => e)
+
+  it('recognises the server refusing a slot because the pet has as many photos as it may keep', async () => {
+    const error = await refusal(`a pet can have at most ${LIMITS.photosPerPet} photos`)
+
+    expect(error).toMatchObject({ name: 'AppError', code: 'VALIDATION', retryable: false })
+    expect(isPhotoLimitReached(error)).toBe(true)
+  })
+
+  it.each([
+    ['an id that is already used (Ruling 26)', 'id is already used by another photo'],
+    ['a refusal with no detail', null],
+  ])('is false for any other refused slot: %s', async (_label, details) => {
+    const error = await refusal(details)
+
+    expect(error).toMatchObject({ name: 'AppError', code: 'VALIDATION' })
+    expect(isPhotoLimitReached(error)).toBe(false)
+  })
+
+  it('is false for anything that is not a VALIDATION refusal', () => {
+    const detail = { details: `a pet can have at most ${LIMITS.photosPerPet} photos` }
+    expect(isPhotoLimitReached(new AppError('UNKNOWN', 'boom', { cause: detail }))).toBe(false)
+    expect(isPhotoLimitReached(new AppError('VALIDATION'))).toBe(false)
+    expect(isPhotoLimitReached(detail)).toBe(false)
+    expect(isPhotoLimitReached(null)).toBe(false)
+    expect(isPhotoLimitReached('a pet can have at most 6 photos')).toBe(false)
   })
 })
 

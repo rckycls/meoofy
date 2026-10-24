@@ -139,6 +139,26 @@ async function alreadyConfirmed(c: PawpinClient, a: PhotoUpload): Promise<PetPho
 
 const isPositiveInteger = (n: number) => Number.isInteger(n) && n > 0
 
+/** api.request_photo_upload's detail when the pet already has LIMITS.photosPerPet photos. */
+const PHOTO_LIMIT_DETAIL = /^a pet can have at most \d+ photos$/
+
+/**
+ * Whether `e` is the server refusing a new photo because the pet already has as many photos as it
+ * may keep (LIMITS.photosPerPet). It is a VALIDATION error like every refused upload slot, so
+ * only the server's detail tells it apart. Sending the same photo again can't help.
+ */
+export function isPhotoLimitReached(e: unknown): boolean {
+  if (!(e instanceof AppError) || e.code !== 'VALIDATION') return false
+  const { cause } = e
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'details' in cause &&
+    typeof cause.details === 'string' &&
+    PHOTO_LIMIT_DETAIL.test(cause.details)
+  )
+}
+
 /**
  * Uploads a reference photo: asks the server for an upload slot, uploads the JPEG to the private
  * bucket at the slot's path, then confirms it, which makes it the pet's photo for its view (a
@@ -148,6 +168,11 @@ const isPositiveInteger = (n: number) => Number.isInteger(n) && n > 0
  * and a photo already confirmed is returned as it is. A confirm the server refuses (the photo is
  * missing or too small) rejects with PHOTO_QUALITY and leaves the photo `pending`, so it can be
  * retried. The quality checks on the image itself (`assessPhoto`) run on the device first.
+ *
+ * A slot the server refuses rejects with VALIDATION, and the same id would be refused again: the
+ * pet already has as many photos as it may keep (`isPhotoLimitReached`), or the id belongs to a
+ * deleted photo whose file cleanup has not removed yet (Ruling 26). A new photo needs a new id. A
+ * new photo for a view replaces the photo left pending there by an earlier attempt (Ruling 54).
  */
 export async function uploadPhoto(c: PawpinClient, a: PhotoUpload): Promise<PetPhoto> {
   try {
