@@ -185,8 +185,12 @@ select throws_ok($$ select api.delete_photo(gen_random_uuid()) $$,
   'P0001', 'PAWPIN:UNAUTHENTICATED', 'delete_photo without a JWT throws UNAUTHENTICATED');
 
 -- The authenticated role with no usable subject claim (a token without sub).
-select set_config('role', 'authenticated', true);
-select set_config('request.jwt.claims', '', true);
+do $$
+begin
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', '', true);
+end
+$$;
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', 1000) $$,
@@ -198,7 +202,7 @@ select throws_ok($$ select api.delete_photo(gen_random_uuid()) $$,
   'P0001', 'PAWPIN:UNAUTHENTICATED', 'delete_photo with no subject claim throws UNAUTHENTICATED');
 
 -- The anon role cannot reach any of it.
-select set_config('role', 'anon', true);
+do $$ begin perform set_config('role', 'anon', true); end $$;
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', 1000) $$,
@@ -478,13 +482,17 @@ select is(tests.row_count($$ update storage.objects set metadata = '{"tampered":
   'A cannot update even their own files');
 -- Storage blocks direct deletes with a statement trigger unless this is set; set it so the
 -- assertion below is about the missing delete policy, not that trigger.
-select set_config('storage.allow_delete_query', 'true', true);
+do $$ begin perform set_config('storage.allow_delete_query', 'true', true); end $$;
 select is(tests.row_count($$ delete from storage.objects $$), 0,
   'A cannot delete even their own files');
-select set_config('storage.allow_delete_query', 'false', true);
+do $$ begin perform set_config('storage.allow_delete_query', 'false', true); end $$;
 
-select set_config('role', 'anon', true);
-select set_config('request.jwt.claims', '', true);
+do $$
+begin
+  perform set_config('role', 'anon', true);
+  perform set_config('request.jwt.claims', '', true);
+end
+$$;
 select is_empty($$ select 1 from storage.objects $$, 'anon sees no files');
 select throws_ok($$ select tests.upload(current_setting('pawpin.path_s1')) $$, '42501', null,
   'anon cannot upload, even to a pending path');
@@ -948,6 +956,8 @@ select is_empty(
 -- files and 29 upload requests in the last hour, and removes all of it at the end. Race users left behind by an
 -- aborted run are removed first, so reruns are safe. dblink needs password authentication for a
 -- non-superuser, so the sessions connect back over TCP with the local Supabase default credentials.
+-- lock_timeout turns a call that would block for good into an error instead of a hang. Calls whose
+-- answers the assertions don't use run in DO blocks, so nothing but TAP reaches the output.
 create extension if not exists dblink with schema extensions;
 
 create function pg_temp.connection_string() returns text language sql as $$
@@ -1012,6 +1022,7 @@ declare
 begin
   foreach conn in array array['setup', 's1', 's2'] loop
     perform extensions.dblink_connect(conn, pg_temp.connection_string());
+    perform extensions.dblink_exec(conn, $q$ set lock_timeout = '5s' $q$);
     perform set_config('pawpin.pid_' || conn,
       (select pid::text from extensions.dblink(conn, 'select pg_backend_pid()') as t(pid int)), true);
   end loop;
@@ -1043,23 +1054,35 @@ end
 $$;
 
 -- 1. Two pending front photos of one pet are confirmed at once.
-select pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
-select pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
+do $$
+begin
+  perform pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
+  perform pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
+end
+$$;
 select is(
   (select id from extensions.dblink('s1',
      format('select id from api.confirm_photo(%L, 1600, 1200, 200, 120)', current_setting('pawpin.c_p1')))
      as t(id uuid)),
   current_setting('pawpin.c_p1')::uuid, 'the first confirm marks its front photo ready');
-select extensions.dblink_send_query('s2',
-  format('select id from api.confirm_photo(%L, 1600, 1200, 200, 120)', current_setting('pawpin.c_p2')));
+do $$
+begin
+  perform extensions.dblink_send_query('s2',
+    format('select id from api.confirm_photo(%L, 1600, 1200, 200, 120)', current_setting('pawpin.c_p2')));
+end
+$$;
 select ok(pg_temp.blocked_by('s2', 's1'),
   'a second confirm for the same pet waits for the first to finish');
-select extensions.dblink_exec('s1', 'commit');
+do $$ begin perform extensions.dblink_exec('s1', 'commit'); end $$;
 select results_eq($$ select * from extensions.dblink_get_result('s2') as t(id uuid) $$,
   $$ values (current_setting('pawpin.c_p2')::uuid) $$,
   'the waiting confirm of the same view succeeds instead of colliding on the one-ready-per-view index');
-select * from extensions.dblink_get_result('s2') as t(id uuid);
-select extensions.dblink_exec('s2', 'commit');
+do $$
+begin
+  perform * from extensions.dblink_get_result('s2') as t(id uuid);
+  perform extensions.dblink_exec('s2', 'commit');
+end
+$$;
 select results_eq(
   $$ select id, status::text from registry.pet_photos where pet_id = current_setting('pawpin.c_pet')::uuid $$,
   $$ values (current_setting('pawpin.c_p2')::uuid, 'ready') $$,
@@ -1074,25 +1097,37 @@ select results_eq(
 
 -- 2. Two requests for different pets race for the last request of the hour (C has 29 in the last
 -- hour). Different pets, so only the account lock can make the second one wait.
-select pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
-select pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
+do $$
+begin
+  perform pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
+  perform pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
+end
+$$;
 select is(
   (select path from extensions.dblink('s1',
      format('select api.request_photo_upload(gen_random_uuid(), %L, %L, %L, 1000)',
             current_setting('pawpin.c_pet'), 'side', 'image/jpeg'))
      as t(path text)) like current_setting('pawpin.c') || '/%',
   true, 'the 30th request of the hour succeeds');
-select extensions.dblink_send_query('s2',
-  format('select api.request_photo_upload(gen_random_uuid(), %L, %L, %L, 1000)',
-         current_setting('pawpin.c_pet2'), 'front', 'image/jpeg'));
+do $$
+begin
+  perform extensions.dblink_send_query('s2',
+    format('select api.request_photo_upload(gen_random_uuid(), %L, %L, %L, 1000)',
+           current_setting('pawpin.c_pet2'), 'front', 'image/jpeg'));
+end
+$$;
 select ok(pg_temp.blocked_by('s2', 's1'),
   'a concurrent request by the same owner waits for the first to finish');
-select extensions.dblink_exec('s1', 'commit');
+do $$ begin perform extensions.dblink_exec('s1', 'commit'); end $$;
 select throws_ok($$ select * from extensions.dblink_get_result('s2') as t(path text) $$,
   'P0001', 'PAWPIN:RATE_LIMITED',
   'concurrent requests never exceed the hourly limit: the waiting 31st request is refused');
-select * from extensions.dblink_get_result('s2') as t(path text);
-select extensions.dblink_exec('s2', 'rollback');
+do $$
+begin
+  perform * from extensions.dblink_get_result('s2') as t(path text);
+  perform extensions.dblink_exec('s2', 'rollback');
+end
+$$;
 select is(
   (select count(*)::int from audit.events
     where actor_id = current_setting('pawpin.c')::uuid and action = 'photo.upload_requested'
@@ -1101,8 +1136,12 @@ select is(
 );
 
 -- Remove the committed fixtures.
-select pg_temp.remove_race_users();
-select extensions.dblink_disconnect(conn) from unnest(array['setup', 's1', 's2']) conn;
+do $$
+begin
+  perform pg_temp.remove_race_users();
+  perform extensions.dblink_disconnect(conn) from unnest(array['setup', 's1', 's2']) conn;
+end
+$$;
 select results_eq(
   $$ select (select count(*)::int from auth.users where id = current_setting('pawpin.c')::uuid),
             (select count(*)::int from storage.objects

@@ -448,10 +448,13 @@ select results_eq(
 -- ---------------------------------------------------------------------------
 -- The sessions cannot see this transaction's uncommitted rows, so a third (setup) commits two queue
 -- rows for them and removes them at the end. Their paths are new on every run, and a row left
--- behind by an aborted run is harmless (removing a missing file succeeds). dblink requires password
--- authentication for a non-superuser, so the sessions connect back over TCP with the local Supabase
--- default credentials (see `supabase status`). lock_timeout turns a claim that would block into an
--- error instead of a hang.
+-- behind by an aborted run is harmless (removing a missing file succeeds). The two rows are dated
+-- long ago, so they come before any other committed row in claim order, and each session claims
+-- only two rows inside a transaction it rolls back: the claims never touch, or count, another row
+-- a used database holds. dblink requires password authentication for a non-superuser, so the
+-- sessions connect back over TCP with the local Supabase default credentials (see `supabase
+-- status`). lock_timeout turns a claim that would block into an error instead of a hang. Calls
+-- whose answers the assertions don't use run in DO blocks, so nothing but TAP reaches the output.
 create extension if not exists dblink with schema extensions;
 
 do $$
@@ -466,28 +469,36 @@ begin
     perform extensions.dblink_exec(conn, $q$ set lock_timeout = '5s' $q$);
   end loop;
   perform extensions.dblink_exec('setup', format(
-    $q$ insert into registry.storage_deletions (storage_path) values (%L), (%L) $q$,
+    $q$ insert into registry.storage_deletions (storage_path, requested_at)
+        values (%L, '2000-01-01'), (%L, '2000-01-01') $q$,
     current_setting('pawpin.race') || '/1.jpg', current_setting('pawpin.race') || '/2.jpg'));
+  perform extensions.dblink_exec('s1', 'begin');
+  perform extensions.dblink_exec('s2', 'begin');
 end
 $$;
 
-select extensions.dblink_exec('s1', 'begin');
-select is(
-  (select count(*)::int from extensions.dblink('s1',
-     'select storage_path from registry.claim_storage_deletions(10)') as t(storage_path text)
-    where storage_path like current_setting('pawpin.race') || '/%'),
-  2, 'a first session claims both committed rows and holds them until it commits');
+select results_eq(
+  $$ select storage_path from extensions.dblink('s1',
+       'select storage_path from registry.claim_storage_deletions(2)') as t(storage_path text)
+      order by storage_path $$,
+  $$ values (current_setting('pawpin.race') || '/1.jpg'), (current_setting('pawpin.race') || '/2.jpg') $$,
+  'a first session claims both committed rows and holds them until it ends');
 select is(
   (select count(*)::int from extensions.dblink('s2',
-     'select storage_path from registry.claim_storage_deletions(10)') as t(storage_path text)
+     'select storage_path from registry.claim_storage_deletions(2)') as t(storage_path text)
     where storage_path like current_setting('pawpin.race') || '/%'),
   0, 'a concurrent claim skips the locked rows instead of waiting for them');
-select extensions.dblink_exec('s1', 'commit');
 
-select extensions.dblink_exec('setup', format(
-  $q$ delete from registry.storage_deletions where storage_path like %L $q$,
-  current_setting('pawpin.race') || '/%'));
-select extensions.dblink_disconnect(conn) from unnest(array['setup', 's1', 's2']) conn;
+do $$
+begin
+  perform extensions.dblink_exec('s1', 'rollback');
+  perform extensions.dblink_exec('s2', 'rollback');
+  perform extensions.dblink_exec('setup', format(
+    $q$ delete from registry.storage_deletions where storage_path like %L $q$,
+    current_setting('pawpin.race') || '/%'));
+  perform extensions.dblink_disconnect(conn) from unnest(array['setup', 's1', 's2']) conn;
+end
+$$;
 
 select * from finish();
 rollback;

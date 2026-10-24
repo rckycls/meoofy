@@ -4,6 +4,10 @@
 begin;
 select plan(39);
 
+-- The log may hold rows from earlier sign-up attempts against this database. Empty it inside this
+-- transaction (rolled back at the end), so the counts below see only this file's rows.
+delete from identity.signup_rejections;
+
 -- ---------------------------------------------------------------------------
 -- Shape
 -- ---------------------------------------------------------------------------

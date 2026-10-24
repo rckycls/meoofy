@@ -92,8 +92,12 @@ select throws_ok($$ select api.delete_pet(gen_random_uuid()) $$,
   'P0001', 'PAWPIN:UNAUTHENTICATED', 'delete_pet without a JWT throws UNAUTHENTICATED');
 
 -- The authenticated role with no usable subject claim (a token without sub).
-select set_config('role', 'authenticated', true);
-select set_config('request.jwt.claims', '', true);
+do $$
+begin
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims', '', true);
+end
+$$;
 select throws_ok($$ select api.create_pet(gen_random_uuid(), 'Milo', 'dog', null, null) $$,
   'P0001', 'PAWPIN:UNAUTHENTICATED', 'create_pet with no subject claim throws UNAUTHENTICATED');
 select throws_ok($$ select api.update_pet(gen_random_uuid(), name => 'Milo') $$,
@@ -105,7 +109,7 @@ select is_empty($$ select 1 from api.my_entitlement $$,
   'api.my_entitlement is empty with no subject claim');
 
 -- The anon role cannot reach any of it.
-select set_config('role', 'anon', true);
+do $$ begin perform set_config('role', 'anon', true); end $$;
 select throws_ok($$ select api.create_pet(gen_random_uuid(), 'Milo', 'dog', null, null) $$,
   '42501', null, 'anon cannot call create_pet');
 select throws_ok($$ select api.update_pet(gen_random_uuid(), name => 'Milo') $$,
@@ -331,7 +335,8 @@ select tests.clear_auth();
 select results_eq(
   $$ select (select count(*)::int from registry.pet_photos
               where pet_id = 'a6000000-0000-4000-8000-000000000002'),
-            (select count(*)::int from registry.storage_deletions) $$,
+            (select count(*)::int from registry.storage_deletions
+              where storage_path like current_setting('pawpin.a') || '/%') $$,
   $$ values (2, 0) $$,
   'B''s rejected delete kept A''s photos and queued nothing'
 );
@@ -449,7 +454,8 @@ select results_eq(
 
 select tests.clear_auth();
 select results_eq(
-  $$ select storage_path, attempts, last_error from registry.storage_deletions order by storage_path $$,
+  $$ select storage_path, attempts, last_error from registry.storage_deletions
+      where storage_path like current_setting('pawpin.a') || '/%' order by storage_path $$,
   format(
     $$ values (%L, 0, null::text), (%L, 0, null::text) $$,
     current_setting('pawpin.a') || '/a6000000-0000-4000-8000-000000000002/a6000000-0000-4000-8000-0000000000f1.jpg',
@@ -525,6 +531,8 @@ select tests.clear_auth();
 -- run, and race users left behind by an aborted run are removed first, so reruns are safe. dblink
 -- requires password authentication for a non-superuser, so the sessions connect back over TCP to
 -- this server's address with the local Supabase default credentials (see `supabase status`).
+-- lock_timeout turns a call that would block for good into an error instead of a hang. Calls whose
+-- answers the assertions don't use run in DO blocks, so nothing but TAP reaches the output.
 create extension if not exists dblink with schema extensions;
 
 create function pg_temp.connection_string() returns text language sql as $$
@@ -570,6 +578,7 @@ declare
 begin
   foreach conn in array array['setup', 's1', 's2'] loop
     perform extensions.dblink_connect(conn, pg_temp.connection_string());
+    perform extensions.dblink_exec(conn, $q$ set lock_timeout = '5s' $q$);
     perform set_config('pawpin.pid_' || conn,
       (select pid::text from extensions.dblink(conn, 'select pg_backend_pid()') as t(pid int)), true);
   end loop;
@@ -601,37 +610,53 @@ end
 $$;
 
 -- 1. Two creates for the same owner race for the last free slot.
-select pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
-select pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
-select * from extensions.dblink('s1', pg_temp.create_pet_sql(1, 'Three')) as t(id uuid, name text);
-select extensions.dblink_send_query('s2', pg_temp.create_pet_sql(2, 'Four'));
+do $$
+begin
+  perform pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
+  perform pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
+  perform * from extensions.dblink('s1', pg_temp.create_pet_sql(1, 'Three')) as t(id uuid, name text);
+  perform extensions.dblink_send_query('s2', pg_temp.create_pet_sql(2, 'Four'));
+end
+$$;
 select ok(pg_temp.blocked_by('s2', 's1'),
   'a second create for the same owner waits for the first to finish');
-select extensions.dblink_exec('s1', 'commit');
+do $$ begin perform extensions.dblink_exec('s1', 'commit'); end $$;
 select throws_ok($$ select * from extensions.dblink_get_result('s2') as t(id uuid, name text) $$,
   'P0001', 'PAWPIN:PET_LIMIT_REACHED',
   'concurrent creates never exceed the limit: the waiting create sees the 3rd pet and is refused');
-select * from extensions.dblink_get_result('s2') as t(id uuid, name text);
-select extensions.dblink_exec('s2', 'rollback');
+do $$
+begin
+  perform * from extensions.dblink_get_result('s2') as t(id uuid, name text);
+  perform extensions.dblink_exec('s2', 'rollback');
+end
+$$;
 select is(
   (select count(*)::int from registry.pets
     where owner_id = current_setting('pawpin.c')::uuid and registration_state = 'private'),
   3, 'the owner ends with exactly 3 private pets');
 
 -- 2. A create and its retry (same id, same owner) race.
-select extensions.dblink_exec('setup', format(
-  'update entitlements.accounts set tier = %L where owner_id = %L', 'pro', current_setting('pawpin.c')));
-select pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
-select pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
-select * from extensions.dblink('s1', pg_temp.create_pet_sql(3, 'Five')) as t(id uuid, name text);
-select extensions.dblink_send_query('s2', pg_temp.create_pet_sql(3, 'Five'));
+do $$
+begin
+  perform extensions.dblink_exec('setup', format(
+    'update entitlements.accounts set tier = %L where owner_id = %L', 'pro', current_setting('pawpin.c')));
+  perform pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
+  perform pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
+  perform * from extensions.dblink('s1', pg_temp.create_pet_sql(3, 'Five')) as t(id uuid, name text);
+  perform extensions.dblink_send_query('s2', pg_temp.create_pet_sql(3, 'Five'));
+end
+$$;
 select ok(pg_temp.blocked_by('s2', 's1'), 'a retried create waits for the original to finish');
-select extensions.dblink_exec('s1', 'commit');
+do $$ begin perform extensions.dblink_exec('s1', 'commit'); end $$;
 select results_eq($$ select * from extensions.dblink_get_result('s2') as t(id uuid, name text) $$,
   $$ values (current_setting('pawpin.race_3')::uuid, 'Five') $$,
   'a concurrent retry returns the pet the original call created');
-select * from extensions.dblink_get_result('s2') as t(id uuid, name text);
-select extensions.dblink_exec('s2', 'commit');
+do $$
+begin
+  perform * from extensions.dblink_get_result('s2') as t(id uuid, name text);
+  perform extensions.dblink_exec('s2', 'commit');
+end
+$$;
 select results_eq(
   $$ select (select count(*)::int from registry.pets
               where id = current_setting('pawpin.race_3')::uuid),
@@ -642,18 +667,26 @@ select results_eq(
 );
 
 -- 3. Two owners race to create the same id.
-select pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
-select pg_temp.begin_as('s2', current_setting('pawpin.d')::uuid);
-select * from extensions.dblink('s1', pg_temp.create_pet_sql(4, 'Six')) as t(id uuid, name text);
-select extensions.dblink_send_query('s2', pg_temp.create_pet_sql(4, 'Six'));
+do $$
+begin
+  perform pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
+  perform pg_temp.begin_as('s2', current_setting('pawpin.d')::uuid);
+  perform * from extensions.dblink('s1', pg_temp.create_pet_sql(4, 'Six')) as t(id uuid, name text);
+  perform extensions.dblink_send_query('s2', pg_temp.create_pet_sql(4, 'Six'));
+end
+$$;
 select ok(pg_temp.blocked_by('s2', 's1'),
   'another owner''s create with the same id waits for the first insert');
-select extensions.dblink_exec('s1', 'commit');
+do $$ begin perform extensions.dblink_exec('s1', 'commit'); end $$;
 select throws_ok($$ select * from extensions.dblink_get_result('s2') as t(id uuid, name text) $$,
   'P0001', 'PAWPIN:NOT_OWNER',
   'a concurrent create of the same id by another owner throws NOT_OWNER, not a unique violation');
-select * from extensions.dblink_get_result('s2') as t(id uuid, name text);
-select extensions.dblink_exec('s2', 'rollback');
+do $$
+begin
+  perform * from extensions.dblink_get_result('s2') as t(id uuid, name text);
+  perform extensions.dblink_exec('s2', 'rollback');
+end
+$$;
 select results_eq(
   $$ select owner_id from registry.pets where id = current_setting('pawpin.race_4')::uuid $$,
   $$ values (current_setting('pawpin.c')::uuid) $$,
@@ -661,11 +694,15 @@ select results_eq(
 );
 
 -- Remove the committed fixtures (pets, photos, profiles and accounts cascade from auth.users).
-select extensions.dblink_exec('setup', format('delete from audit.events where actor_id in (%L, %L)',
-  current_setting('pawpin.c'), current_setting('pawpin.d')));
-select extensions.dblink_exec('setup', format('delete from auth.users where id in (%L, %L)',
-  current_setting('pawpin.c'), current_setting('pawpin.d')));
-select extensions.dblink_disconnect(conn) from unnest(array['setup', 's1', 's2']) conn;
+do $$
+begin
+  perform extensions.dblink_exec('setup', format('delete from audit.events where actor_id in (%L, %L)',
+    current_setting('pawpin.c'), current_setting('pawpin.d')));
+  perform extensions.dblink_exec('setup', format('delete from auth.users where id in (%L, %L)',
+    current_setting('pawpin.c'), current_setting('pawpin.d')));
+  perform extensions.dblink_disconnect(conn) from unnest(array['setup', 's1', 's2']) conn;
+end
+$$;
 select is(
   (select count(*)::int from auth.users
     where id in (current_setting('pawpin.c')::uuid, current_setting('pawpin.d')::uuid)),
