@@ -1,7 +1,15 @@
+import { useEffect } from 'react'
 import { Text } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Sentry from '@sentry/react-native'
 import { act, render, screen, waitFor } from '@testing-library/react-native'
-import { onlineManager, useIsRestoring, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  onlineManager,
+  useIsRestoring,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import * as SecureStore from 'expo-secure-store'
 import { checkSession } from '@pawpin/api'
 import { AppError } from '@pawpin/core'
@@ -139,6 +147,91 @@ beforeEach(() => {
   cacheProbe = null
   restoringProbe = true
   mockCheckSession.mockReset()
+})
+
+/** Runs one mutation with `mutationKey` as soon as it mounts, and shows how it ended. */
+function Mutation({ mutationFn }: { mutationFn: () => Promise<string> }) {
+  const { mutate, status } = useMutation({ mutationKey: ['createPet'], mutationFn })
+  useEffect(() => mutate(), [mutate])
+  return <Text>{`mutation ${status}`}</Text>
+}
+
+describe('QueryProvider: unexpected failures go to Sentry, sanitised (spec §9)', () => {
+  /** A failure whose message and details name a pet and a person. */
+  const unexpected = () =>
+    Promise.reject(
+      new AppError('UNKNOWN', 'Failing row contains (Milo, alex@example.com)', {
+        cause: {
+          code: '23514',
+          message: 'Failing row contains (Milo, alex@example.com)',
+          details: 'Failing row contains (Milo, alex@example.com)',
+          status: 400,
+        },
+      }),
+    )
+  const sent = () => jest.mocked(Sentry.captureException).mock.calls.map(([error]) => error)
+
+  beforeEach(() => {
+    jest.mocked(Sentry.captureException).mockClear()
+    jest.mocked(Sentry.getClient).mockReturnValue({} as ReturnType<typeof Sentry.getClient>)
+  })
+  afterEach(() => {
+    jest.mocked(Sentry.getClient).mockReset()
+  })
+
+  it('sends an unexpected read failure, named after the query and stripped of its message', async () => {
+    await render(
+      <TestProviders client={fakeClient({ userId: 'u1' }).client}>
+        <ProfileQuery queryFn={unexpected} />
+      </TestProviders>,
+    )
+
+    expect(await screen.findByText('error')).toBeOnTheScreen()
+    await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1))
+    expect(sent()[0]).toMatchObject({ message: 'UNKNOWN in profile (HTTP 400, Postgres 23514)' })
+    expect(JSON.stringify(jest.mocked(Sentry.captureException).mock.calls)).not.toMatch(
+      /Milo|alex@example\.com/,
+    )
+  })
+
+  it('sends an unexpected write failure, named after the mutation', async () => {
+    await render(
+      <TestProviders client={fakeClient({ userId: 'u1' }).client}>
+        <Mutation mutationFn={unexpected} />
+      </TestProviders>,
+    )
+
+    expect(await screen.findByText('mutation error')).toBeOnTheScreen()
+    expect(sent()).toEqual([
+      expect.objectContaining({ message: 'UNKNOWN in createPet (HTTP 400, Postgres 23514)' }),
+    ])
+  })
+
+  it('sends nothing for the failures the app expects', async () => {
+    mockCheckSession.mockResolvedValue('unknown')
+    await render(
+      <TestProviders client={fakeClient({ userId: 'u1' }).client}>
+        <ProfileQuery queryFn={() => Promise.reject(new AppError('UNAUTHENTICATED'))} />
+        <Mutation mutationFn={() => Promise.reject(new AppError('VALIDATION'))} />
+      </TestProviders>,
+    )
+
+    expect(await screen.findByText('error')).toBeOnTheScreen()
+    expect(await screen.findByText('mutation error')).toBeOnTheScreen()
+    expect(Sentry.captureException).not.toHaveBeenCalled()
+  })
+
+  it('sends nothing while Sentry is off', async () => {
+    jest.mocked(Sentry.getClient).mockReturnValue(undefined)
+    await render(
+      <TestProviders client={fakeClient({ userId: 'u1' }).client}>
+        <ProfileQuery queryFn={unexpected} />
+      </TestProviders>,
+    )
+
+    expect(await screen.findByText('error')).toBeOnTheScreen()
+    expect(Sentry.captureException).not.toHaveBeenCalled()
+  })
 })
 
 describe('QueryProvider', () => {

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import * as AppleAuthentication from 'expo-apple-authentication'
-import { Redirect, router } from 'expo-router'
+import { Redirect, router, useLocalSearchParams } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { sendEmailCode, signInWithAppleIdToken, signInWithAppleWeb } from '@pawpin/api'
 import { AppError, parseAppError } from '@pawpin/core'
 import { Button, Field, colors, radii, space, textStyle, type } from '@pawpin/ui'
 
+import { reportHandledError } from '../../observability/sentry'
 import { useSession } from '../../state/SessionProvider'
 import { createNonce } from './appleNonce'
 import { useAuthFlow } from './AuthFlow'
@@ -58,9 +59,14 @@ function useAppleAvailable(): boolean {
   return available
 }
 
-/** O01 owner welcome: Sign in with Apple, or an emailed 6-digit code. */
+/**
+ * O01 owner welcome: Sign in with Apple, or an emailed 6-digit code. Opened with
+ * `?deletion=unconfirmed` (Account, after a deletion that ended in UNAUTHENTICATED; Ruling 25), it
+ * also says how to tell whether the account was deleted.
+ */
 export function SignInScreen() {
   const { client, signedIn } = useSession()
+  const { deletion } = useLocalSearchParams<{ deletion?: string }>()
   const queryClient = useQueryClient()
   const { setEmail: rememberEmail } = useAuthFlow()
   const continueWhenSignedIn = useContinueWhenSignedIn()
@@ -92,6 +98,7 @@ export function SignInScreen() {
       router.push('/(auth)/email-code')
     } catch (e) {
       const error = parseAppError(e)
+      reportHandledError(e, 'sendEmailCode')
       if (error.code === 'VALIDATION') setEmailError(copy.emailInvalid)
       else setProblem(error)
     } finally {
@@ -129,13 +136,19 @@ export function SignInScreen() {
         (await nameFromApple(client, queryClient, givenName)) ? '/(onboarding)/all-set' : '/',
       )
     } catch (e) {
-      if (!isCancelled(e)) setProblem(parseAppError(e))
+      if (!isCancelled(e)) {
+        reportHandledError(e, 'signInWithApple')
+        setProblem(parseAppError(e))
+      }
       setBusy(null)
     }
   }
 
   return (
     <AuthFrame stickers={['dog', 'paw-pin', 'cat']} title={copy.title} body={copy.body}>
+      {deletion === 'unconfirmed' ? (
+        <Text style={styles.note}>{copy.deletionUnconfirmed}</Text>
+      ) : null}
       {appleAvailable ? (
         <>
           {Platform.OS === 'web' ? (
@@ -203,4 +216,5 @@ const styles = StyleSheet.create({
   divider: { flexDirection: 'row', alignItems: 'center', gap: space[16] },
   rule: { flex: 1, height: 1, backgroundColor: colors.line },
   dividerLabel: { ...textStyle(type.small), color: colors.slate },
+  note: { ...textStyle(type.body), color: colors.deepBlue },
 })

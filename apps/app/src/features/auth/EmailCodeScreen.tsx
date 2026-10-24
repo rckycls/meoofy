@@ -5,6 +5,7 @@ import { sendEmailCode, verifyEmailCode } from '@pawpin/api'
 import { parseAppError, type AppError } from '@pawpin/core'
 import { Button, colors, space, textStyle, type } from '@pawpin/ui'
 
+import { reportHandledError } from '../../observability/sentry'
 import { useSession } from '../../state/SessionProvider'
 import { stepBack } from '../onboarding/progress'
 import { useAuthFlow } from './AuthFlow'
@@ -20,8 +21,8 @@ import { CODE_LENGTH, codeDigits } from './validation'
 
 const copy = authCopy.emailCode
 
-/** Seconds before "Resend code" can be used again. */
-const RESEND_AFTER = 30
+/** Seconds before "Resend code" can be used again: hosted Auth sends one email per address per 60 s. */
+const RESEND_AFTER = 60
 
 /** The code screen. Without an email (a reload) there is nothing to enter a code for. */
 export function EmailCodeScreen() {
@@ -63,6 +64,7 @@ function CodeEntry({ email }: { email: string }) {
         // Ready for the next try, even if the keyboard has gone.
         codeField.current?.focus()
       } else {
+        reportHandledError(e, 'verifyEmailCode')
         setProblem(error)
       }
       setVerifying(false)
@@ -81,6 +83,7 @@ function CodeEntry({ email }: { email: string }) {
       countdown.restart()
       codeField.current?.focus()
     } catch (e) {
+      reportHandledError(e, 'sendEmailCode')
       setProblem(parseAppError(e))
     } finally {
       setSending(false)

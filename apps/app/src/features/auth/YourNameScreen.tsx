@@ -5,6 +5,7 @@ import { AppError, codePointLength, displayNameSchema, parseAppError } from '@pa
 import { Button, Field } from '@pawpin/ui'
 
 import { useProfile } from '../../data/useProfile'
+import { reportHandledError } from '../../observability/sentry'
 import { confirmSession } from '../../state/sessionCheck'
 import { useSession } from '../../state/SessionProvider'
 import { stepBack } from '../onboarding/progress'
@@ -58,6 +59,7 @@ export function YourNameScreen() {
       // An UNAUTHENTICATED answer can mean the session is gone or only that a refresh failed for
       // a moment. Auth decides: a refused session signs out, and this screen then leads to sign-in.
       if (error.code === 'UNAUTHENTICATED') void confirmSession(client, e)
+      reportHandledError(e, 'updateDisplayName')
       if (error.code === 'VALIDATION') setNameError(copy.required)
       else setProblem(error)
       setSaving(false)

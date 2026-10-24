@@ -5,7 +5,8 @@ import type { PhotoView } from '@pawpin/core'
  * How long a view's "Try again" stays off after the server says RATE_LIMITED (spec §9: "with a
  * retry after a delay"). The server's limit is a rolling hour, so trying again at once would be
  * refused again. This is a UX value and not a domain limit, so it is not in core's `LIMITS` (which
- * feeds the generated SQL). The words in `photosCopy.retryWait` say "a minute": change both.
+ * feeds the generated SQL). The words in `photosCopy.retryWait` promise no time, so they hold
+ * whatever this is set to.
  */
 export const RATE_LIMITED_RETRY_DELAY_MS = 60_000
 

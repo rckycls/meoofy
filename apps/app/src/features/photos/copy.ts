@@ -84,9 +84,16 @@ export const photosCopy = {
     RATE_LIMITED: 'Take a short break and try again',
     NETWORK: 'You seem to be offline. Check your connection and try again.',
     UNKNOWN: 'Something went wrong. Please try again.',
+    // The server's photo limit (LIMITS.photosPerPet): sending the photo again can't help.
+    PHOTO_LIMIT: 'This pet already has the most photos it can keep. Remove one to add another.',
+    // Any other refused upload slot: this attempt can't be sent again, but the photo can be added
+    // again as a new attempt.
+    REFUSED: 'We couldn’t add that photo. Please add it again.',
   } satisfies Record<PhotoProblem, string>,
-  // Shown while "Try again" waits after RATE_LIMITED (`RATE_LIMITED_RETRY_DELAY_MS`).
-  retryWait: 'You can try again in a minute.',
+  // Shown while "Try again" waits after RATE_LIMITED (`RATE_LIMITED_RETRY_DELAY_MS`). No time is
+  // promised: the server's limit is per rolling hour, so the retry after the wait may be limited
+  // again.
+  retryWait: 'Please wait a little, then try again.',
   loadFailed: 'We couldn’t load your photos. Please try again.',
   // Offline: the photo actions are off, and photos that were never loaded are not guessed at.
   offline: 'Photos need a connection',

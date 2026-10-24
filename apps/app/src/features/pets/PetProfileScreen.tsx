@@ -149,7 +149,9 @@ export function PetProfileScreen() {
       working.current = false
       return
     }
-    router.replace('/(tabs)/home')
+    // Back to the tabs this profile was pushed over, on Home; when there are none below (the
+    // profile was opened directly), the profile is replaced by them.
+    router.dismissTo('/(tabs)/home')
   }
 
   return (

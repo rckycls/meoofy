@@ -19,6 +19,8 @@ export function useCreatePet() {
     // Ask the server even when the device believes it is offline: a failure is reported at once,
     // where the default would hold the request and leave the screen waiting.
     networkMode: 'always',
+    // Names the operation when an unexpected failure is reported (QueryProvider's MutationCache).
+    mutationKey: ['createPet'],
     mutationFn: (basics: Omit<PetInput, 'id'>) => createPet(client, { ...basics, id }),
     onSuccess: () => {
       // The list and the pet count change; whatever is on screen refreshes in the background.

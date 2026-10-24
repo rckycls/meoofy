@@ -9,12 +9,14 @@ import { createPet, deletePet, getPet, updatePet, type Pet } from '@pawpin/api'
 import { AppError, LIMITS } from '@pawpin/core'
 import { cardRoles, colors, flowTints } from '@pawpin/ui'
 
+import TabsLayout from '../../../app/(tabs)/_layout'
 import AddPetRoute from '../../../app/pets/new'
 import EditPetRoute from '../../../app/pets/[id]/edit'
 import PetProfileRoute from '../../../app/pets/[id]/index'
 import { env } from '../../env'
 import { clearDraft, loadDraft, saveDraft, type PetDraft } from '../../offline/draft'
 import { fakeClient } from '../../testing/fakeClient'
+import { sentryReports, turnSentryOff } from '../../testing/sentry'
 import { testRootStackLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 
@@ -152,6 +154,7 @@ const initialWindow = Dimensions.get('window')
 afterEach(() => {
   onlineManager.setOnline(true)
   Object.assign(env.flags, { reportMissing: false })
+  turnSentryOff()
   setWindowWidth(initialWindow.width, initialWindow.height)
 })
 
@@ -425,7 +428,8 @@ describe('O03 Let’s meet your pet', () => {
   })
 
   it('says something friendly for any other failure, and keeps the form', async () => {
-    mockCreatePet.mockRejectedValue(new AppError('UNKNOWN'))
+    const reports = sentryReports()
+    mockCreatePet.mockRejectedValue(new AppError('UNKNOWN', 'Failing row contains (Milo)'))
     await open('/pets/new')
     await screen.findByRole('header', { name: 'Let’s meet your pet' })
     await fillMilo()
@@ -435,6 +439,8 @@ describe('O03 Let’s meet your pet', () => {
     expect(await screen.findByText('Something went wrong. Please try again.')).toBeOnTheScreen()
     expect(screen.queryByTestId('pet-limit')).toBeNull()
     expect(screen.getByRole('button', { name: 'Continue to photos' })).toBeEnabled()
+    // Unexpected, so it is reported once (spec §9), named and without its message.
+    expect(reports()).toEqual(['UNKNOWN in createPet'])
   })
 
   it('shows a server refusal of the details as a note to check them', async () => {
@@ -889,6 +895,7 @@ describe('Edit pet', () => {
   })
 
   it('keeps the form and says so when saving fails', async () => {
+    const reports = sentryReports()
     mockUpdatePet.mockRejectedValue(new AppError('UNKNOWN'))
     const router = await openEdit()
     await fireEvent.changeText(field('Breed or description'), 'Beagle')
@@ -898,6 +905,7 @@ describe('Edit pet', () => {
     expect(await screen.findByText('Something went wrong. Please try again.')).toBeOnTheScreen()
     expect(router.getPathname()).toBe(`/pets/${PET_ID}/edit`)
     expect(field('Breed or description').props.value).toBe('Beagle')
+    expect(reports()).toEqual(['UNKNOWN in updatePet'])
   })
 
   it('offline, keeps the changes and waits for a connection to save them', async () => {
@@ -998,6 +1006,38 @@ describe('Delete pet', () => {
     expect(queryClient?.getQueryData(['pet', PET_ID])).toBeUndefined()
   })
 
+  it('returns to the Home it was opened from, without stacking a second Home', async () => {
+    // From Home the profile is pushed over the tabs; going "back" to Home must not leave the
+    // deleted pet's screen (or a second tab layout) underneath.
+    fake = fakeClient({ userId: 'u1', email: 'alex@example.com' })
+    const router = await renderRouter(
+      {
+        _layout: testRootStackLayout(fake.client),
+        '(tabs)/_layout': TabsLayout,
+        '(tabs)/home': stub('Home screen'),
+        '(tabs)/find': stub('Find screen'),
+        '(tabs)/alerts': stub('Alerts screen'),
+        '(tabs)/account': stub('Account screen'),
+        'pets/[id]/index': withCache(PetProfileRoute),
+      },
+      { initialUrl: '/home' },
+    )
+    await screen.findByText('Home screen')
+    await act(async () => appRouter.push(`/pets/${PET_ID}`))
+    await screen.findByRole('header', { name: 'Milo' })
+    await pressButton('Delete pet')
+    const dialog = await screen.findByLabelText('Delete Milo?')
+
+    await fireEvent.press(within(dialog).getByRole('button', { name: CONFIRM }))
+
+    expect(await screen.findByText('Home screen')).toBeOnTheScreen()
+    expect(router.getPathname()).toBe('/home')
+    // The app's root stack (under expo-router's own __root) holds one tab layout and nothing else.
+    const rootStack = router.getRouterState()?.routes[0]?.state
+    expect(rootStack?.routes.map((route) => route.name)).toEqual(['(tabs)'])
+    expect(appRouter.canGoBack()).toBe(false)
+  })
+
   it('deletes once however fast the confirmation is pressed', async () => {
     mockDeletePet.mockImplementation(() => new Promise(() => undefined))
     const { dialog } = await openDeleteDialog()
@@ -1018,12 +1058,14 @@ describe('Delete pet', () => {
   })
 
   it('stays on the profile with a friendly note when the deletion fails, and can be tried again', async () => {
+    const reports = sentryReports()
     mockDeletePet.mockRejectedValueOnce(new AppError('UNKNOWN'))
     const { dialog, router } = await openDeleteDialog()
 
     await fireEvent.press(within(dialog).getByRole('button', { name: CONFIRM }))
 
     expect(await screen.findByText('We couldn’t delete Milo. Please try again.')).toBeOnTheScreen()
+    expect(reports()).toEqual(['UNKNOWN in deletePet'])
     expect(router.getPathname()).toBe(`/pets/${PET_ID}`)
     expect(screen.queryByLabelText('Delete Milo?')).toBeNull()
     expect(screen.getByRole('header', { name: 'Milo' })).toBeOnTheScreen()

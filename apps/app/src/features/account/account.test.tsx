@@ -11,6 +11,7 @@ import YourName from '../../../app/(auth)/your-name'
 import TabsLayout from '../../../app/(tabs)/_layout'
 import AccountTab from '../../../app/(tabs)/account'
 import { fakeClient } from '../../testing/fakeClient'
+import { sentryReports, turnSentryOff } from '../../testing/sentry'
 import { testRootStackLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 
@@ -128,7 +129,10 @@ beforeEach(async () => {
 })
 
 const initialWindow = Dimensions.get('window')
-afterEach(() => setWindowWidth(initialWindow.width, initialWindow.height))
+afterEach(() => {
+  turnSentryOff()
+  setWindowWidth(initialWindow.width, initialWindow.height)
+})
 
 describe('Account', () => {
   it('shows the name and the email', async () => {
@@ -230,7 +234,10 @@ describe('Sign out', () => {
   })
 
   it('stays on Account with a friendly note when signing out fails', async () => {
-    mockSignOut.mockRejectedValueOnce(new AppError('UNKNOWN'))
+    const reports = sentryReports()
+    mockSignOut.mockRejectedValueOnce(
+      new AppError('UNKNOWN', 'alex@example.com could not sign out'),
+    )
     const router = await open()
     await screen.findByText('Alex')
 
@@ -239,6 +246,8 @@ describe('Sign out', () => {
     expect(await screen.findByText('Something went wrong. Please try again.')).toBeOnTheScreen()
     expect(router.getPathname()).toBe('/account')
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
+    // Unexpected, so it is reported (spec §9), without its message.
+    expect(reports()).toEqual(['UNKNOWN in signOut'])
   })
 })
 
@@ -311,6 +320,8 @@ describe('Delete account', () => {
     await waitFor(() => expect(mockDeleteAccount).toHaveBeenCalledWith(fake.client))
     expect(await screen.findByText('Sign-in screen')).toBeOnTheScreen()
     expect(router.getPathname()).toBe('/sign-in')
+    // The server confirmed the deletion, so sign-in has nothing to add.
+    expect(router.getSearchParams()).toEqual({})
     expect(mockSignOut).toHaveBeenCalledWith(fake.client)
     expect(cacheIsEmpty()).toBe(true)
   })
@@ -346,12 +357,18 @@ describe('Delete account', () => {
     expect(mockSignOut).toHaveBeenCalledWith(fake.client)
     expect(fake.auth.signOut).toHaveBeenCalledWith({ scope: 'local' })
     expect(router.getPathname()).toBe('/sign-in')
+    // Ruling 25: a 401 can also mean the session ended before the deletion ran, so sign-in says
+    // how to tell (the line itself is tested with the sign-in screen).
+    await waitFor(() => expect(router.getSearchParams()).toEqual({ deletion: 'unconfirmed' }))
     expect(cacheIsEmpty()).toBe(true)
     expect(screen.queryByText(/couldn’t delete/)).toBeNull()
   })
 
   it('stays on Account with a friendly note when the deletion fails', async () => {
-    mockDeleteAccount.mockRejectedValue(new AppError('UNKNOWN'))
+    const reports = sentryReports()
+    mockDeleteAccount.mockRejectedValue(
+      new AppError('UNKNOWN', 'alex@example.com: storage said no'),
+    )
     const router = await open()
     const dialog = await openDeleteDialog()
     seedCache()
@@ -367,6 +384,7 @@ describe('Delete account', () => {
     // Nothing was lost: the person is still signed in and their data is still shown.
     expect(screen.getByText('Alex')).toBeOnTheScreen()
     expect(cacheIsEmpty()).toBe(false)
+    expect(reports()).toEqual(['UNKNOWN in deleteAccount'])
   })
 
   it('says when the device is offline, and lets the person try again', async () => {

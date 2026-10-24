@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Platform } from 'react-native'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
-import { QueryCache, QueryClient, type QueryKey } from '@tanstack/react-query'
+import { MutationCache, QueryCache, QueryClient, type QueryKey } from '@tanstack/react-query'
 import {
   PersistQueryClientProvider,
   type PersistedClient,
 } from '@tanstack/react-query-persist-client'
 import { parseAppError } from '@pawpin/core'
 
+import { reportHandledError } from '../observability/sentry'
 import { clearDraft } from '../offline/draft'
 import { storageFor } from '../storage/local'
 import { followAppFocus } from './appFocus'
@@ -25,6 +26,12 @@ const PERSISTED_KEYS: readonly string[] = ['pets', 'entitlement', 'profile']
 export function shouldPersistQuery(queryKey: QueryKey): boolean {
   const [root] = queryKey
   return queryKey.length === 1 && typeof root === 'string' && PERSISTED_KEYS.includes(root)
+}
+
+/** What a failed query or mutation is called in an error report: its key's root, a fixed word. */
+function operationOf(key: QueryKey | undefined): string {
+  const root = key?.[0]
+  return typeof root === 'string' ? root : 'unknown'
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
@@ -62,6 +69,8 @@ function savedData(client: PersistedClient): PersistedClient {
  * TanStack Query with the cache persisted for offline reads (AsyncStorage on
  * iOS, localStorage on the web; nothing while the web build renders on the
  * server). Must sit inside `SessionProvider`:
+ * - a read or write that fails unexpectedly (UNKNOWN) is sent to Sentry,
+ *   stripped of its message (`reportHandledError`, spec §9);
  * - a read that fails with UNAUTHENTICATED is checked with Auth
  *   (`confirmSession`): a refused session signs out locally and the tab layout
  *   routes to sign-in; a session that refreshed fine gets the read asked once
@@ -90,12 +99,20 @@ export function QueryProvider({ children }: { children: ReactNode }) {
     const created: QueryClient = new QueryClient({
       queryCache: new QueryCache({
         onError: (error, query) => {
+          reportHandledError(error, operationOf(query.queryKey))
           if (parseAppError(error).code !== 'UNAUTHENTICATED') return
           void confirmSession(client, error).then((outcome) => {
             if (outcome === 'valid' && mayRecover(query.queryHash)) {
               void created.invalidateQueries({ queryKey: query.queryKey, exact: true })
             }
           })
+        },
+      }),
+      // A write made through a mutation (each has a key naming it) is reported here, once,
+      // whatever the screen then shows. Writes called directly report themselves.
+      mutationCache: new MutationCache({
+        onError: (error, _variables, _result, mutation) => {
+          reportHandledError(error, operationOf(mutation.options.mutationKey))
         },
       }),
       defaultOptions: {

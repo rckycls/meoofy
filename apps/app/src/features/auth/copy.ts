@@ -11,6 +11,10 @@ export const authCopy = {
     emailPlaceholder: 'you@example.com',
     emailAction: 'Sign in with email',
     emailInvalid: 'Enter a valid email address',
+    // Ruling 25: after a confirmed deletion the server answered "not signed in", which it also
+    // says when the session ended before the deletion ran.
+    deletionUnconfirmed:
+      'If you can still sign in, your account wasn’t deleted. Delete it again from Account.',
   },
   emailCode: {
     title: 'Check your email',

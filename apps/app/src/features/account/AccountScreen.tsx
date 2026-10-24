@@ -11,6 +11,7 @@ import { useProfile } from '../../data/useProfile'
 import { ContentColumn } from '../../layout/ContentColumn'
 import { OfflineNote } from '../../offline/OfflineNote'
 import { useOnline } from '../../offline/useOnline'
+import { reportHandledError } from '../../observability/sentry'
 import { useSession } from '../../state/SessionProvider'
 import { ProblemNote } from '../auth/ProblemNote'
 import { TextLink } from '../auth/TextLink'
@@ -42,7 +43,8 @@ export function AccountScreen() {
       // The tab layout leads to sign-in once the session has ended. Offline there is no Auth to
       // tell, and supabase-js would first spend about 25 s retrying a refresh: forget it at once.
       await (offline ? forgetSession(client) : signOut(client))
-    } catch {
+    } catch (e) {
+      reportHandledError(e, 'signOut')
       setProblem(copy.errors.signOut)
       setSigningOut(false)
       working.current = false
@@ -54,11 +56,14 @@ export function AccountScreen() {
     working.current = true
     setProblem(null)
     setDeleting(true)
+    // Whether the server confirmed the deletion (204) or only said the session is gone (401).
+    let confirmed = true
     try {
       await deleteAccount(client)
     } catch (e) {
       const error = parseAppError(e)
       if (error.code !== 'UNAUTHENTICATED') {
+        reportHandledError(e, 'deleteAccount')
         setProblem(error.code === 'NETWORK' ? copy.errors.offline : copy.errors.delete)
         setConfirming(false)
         setDeleting(false)
@@ -66,14 +71,21 @@ export function AccountScreen() {
         return
       }
       // A repeated delete after one that went through: the account and its session are gone
-      // already (the server answers 401). That is the result the person asked for.
+      // already (the server answers 401). That is the result the person asked for. A session
+      // that ended just before the deletion ran answers the same, so sign-in says how to tell
+      // (Ruling 25).
+      confirmed = false
     }
     // The account is gone. `deleteAccount` signs out on a best-effort basis, so make sure no
     // session is left on this device; if that fails there is nothing more the person can do.
     await signOut(client).catch(() => undefined)
     // Nothing of the old account is left to show, on screen or in the saved cache.
     queryClient.clear()
-    router.replace('/(auth)/sign-in')
+    router.replace(
+      confirmed
+        ? '/(auth)/sign-in'
+        : { pathname: '/(auth)/sign-in', params: { deletion: 'unconfirmed' } },
+    )
   }
 
   const displayName = profile.data?.displayName.trim()

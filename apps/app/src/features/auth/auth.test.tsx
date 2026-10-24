@@ -31,6 +31,7 @@ import EntryIndex from '../../../app/index'
 import AllSet from '../../../app/(onboarding)/all-set'
 import { env } from '../../env'
 import { fakeClient } from '../../testing/fakeClient'
+import { sentryReports, turnSentryOff } from '../../testing/sentry'
 import { testRootLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 import { authCopy } from './copy'
@@ -186,10 +187,14 @@ const initialWindow = Dimensions.get('window')
 afterEach(() => {
   jest.useRealTimers()
   jest.restoreAllMocks()
+  turnSentryOff()
   setWindowWidth(initialWindow.width, initialWindow.height)
 })
 
 describe('O01 sign in', () => {
+  const UNCONFIRMED_DELETION =
+    'If you can still sign in, your account wasn’t deleted. Delete it again from Account.'
+
   it('offers Apple and an email code, and says there is no password', async () => {
     await openSignIn()
 
@@ -197,6 +202,27 @@ describe('O01 sign in', () => {
     expect(screen.getByRole('button', { name: 'Continue with Apple' })).toBeOnTheScreen()
     expect(screen.getByLabelText('Email')).toBeOnTheScreen()
     expect(screen.getByRole('button', { name: 'Sign in with email' })).toBeOnTheScreen()
+    expect(screen.queryByText(UNCONFIRMED_DELETION)).toBeNull()
+  })
+
+  it('after a deletion the server could not confirm, says how to tell whether it went through', async () => {
+    // Ruling 25: Account sends a confirmed deletion that ended in UNAUTHENTICATED here.
+    await render('/sign-in?deletion=unconfirmed')
+
+    expect(await screen.findByText(UNCONFIRMED_DELETION)).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Sign in with email' })).toBeOnTheScreen()
+  })
+
+  it('sends an unexpected failure while sending the code to Sentry, without its message', async () => {
+    const reports = sentryReports()
+    mockSendEmailCode.mockRejectedValue(new AppError('UNKNOWN', `could not email ${EMAIL}`))
+    await openSignIn()
+    await typeEmail()
+
+    await press('Sign in with email')
+
+    expect(await screen.findByText(authCopy.errors.unknown)).toBeOnTheScreen()
+    expect(reports()).toEqual(['UNKNOWN in sendEmailCode'])
   })
 
   it('asks for an email address that is valid, and makes no call without one', async () => {
@@ -748,6 +774,17 @@ describe('email code', () => {
     })
   })
 
+  it('sends an unexpected failure while verifying to Sentry, without its message', async () => {
+    const reports = sentryReports()
+    mockVerifyEmailCode.mockRejectedValue(new AppError('UNKNOWN', `no code for ${EMAIL}`))
+    await openCodeScreen()
+
+    await enterCode('123456')
+
+    expect(await screen.findByText(authCopy.errors.unknown)).toBeOnTheScreen()
+    expect(reports()).toEqual(['UNKNOWN in verifyEmailCode'])
+  })
+
   it('explains other failures while verifying, and keeps the digits for a retry', async () => {
     mockVerifyEmailCode.mockRejectedValue(new AppError('NETWORK'))
     await openCodeScreen()
@@ -760,15 +797,16 @@ describe('email code', () => {
   })
 
   describe('resend', () => {
-    it('counts down 30 seconds before a new code can be asked for', async () => {
+    // Hosted Auth sends one email per address per 60 seconds.
+    it('counts down 60 seconds before a new code can be asked for', async () => {
       jest.useFakeTimers()
       await openCodeScreen()
 
       expect(screen.getByRole('button', { name: 'Resend code' })).toBeDisabled()
-      expect(screen.getByText('You can request a new code in 30s')).toBeOnTheScreen()
+      expect(screen.getByText('You can request a new code in 60s')).toBeOnTheScreen()
 
       await act(async () => {
-        jest.advanceTimersByTime(29_000)
+        jest.advanceTimersByTime(59_000)
       })
       expect(screen.getByText('You can request a new code in 1s')).toBeOnTheScreen()
       expect(screen.getByRole('button', { name: 'Resend code' })).toBeDisabled()
@@ -780,11 +818,11 @@ describe('email code', () => {
       expect(screen.queryByText(/You can request a new code in/)).toBeNull()
     })
 
-    it('sends the code again and starts the 30 seconds over', async () => {
+    it('sends the code again and starts the 60 seconds over', async () => {
       jest.useFakeTimers()
       await openCodeScreen()
       await act(async () => {
-        jest.advanceTimersByTime(30_000)
+        jest.advanceTimersByTime(60_000)
       })
       mockSendEmailCode.mockClear()
 
@@ -793,7 +831,7 @@ describe('email code', () => {
       await waitFor(() => expect(mockSendEmailCode).toHaveBeenCalledTimes(1))
       expect(mockSendEmailCode).toHaveBeenCalledWith(fake.client, EMAIL)
       expect(await screen.findByText(authCopy.emailCode.sentAgain(EMAIL))).toBeOnTheScreen()
-      expect(screen.getByText('You can request a new code in 30s')).toBeOnTheScreen()
+      expect(screen.getByText('You can request a new code in 60s')).toBeOnTheScreen()
       expect(screen.getByRole('button', { name: 'Resend code' })).toBeDisabled()
     })
 
@@ -801,7 +839,7 @@ describe('email code', () => {
       jest.useFakeTimers()
       await openCodeScreen()
       await act(async () => {
-        jest.advanceTimersByTime(30_000)
+        jest.advanceTimersByTime(60_000)
       })
       mockSendEmailCode.mockRejectedValue(new AppError('NETWORK'))
 
@@ -997,6 +1035,18 @@ describe('your name', () => {
     expect(await screen.findByText(authCopy.errors.network)).toBeOnTheScreen()
     expect(router.getPathname()).toBe('/your-name')
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+  })
+
+  it('sends an unexpected failure while saving to Sentry, without the name', async () => {
+    const reports = sentryReports()
+    mockUpdateDisplayName.mockRejectedValue(new AppError('UNKNOWN', 'Failing row contains (Alex)'))
+    await openYourName()
+    await typeName('Alex')
+
+    await press('Continue')
+
+    expect(await screen.findByText(authCopy.errors.unknown)).toBeOnTheScreen()
+    expect(reports()).toEqual(['UNKNOWN in updateDisplayName'])
   })
 
   it('asks Auth about the session when saving comes back unauthenticated, and signs in again if it is gone', async () => {

@@ -30,6 +30,7 @@ import { usePhotoUpload } from '../../data/usePhotoUpload'
 import { env } from '../../env'
 import { fakeClient } from '../../testing/fakeClient'
 import { FIXTURE_SIZE, fixtureBase64, fixtureNamed, isFixture } from '../../testing/fixtures'
+import { sentryReports, turnSentryOff } from '../../testing/sentry'
 import { TestProviders, testRootStackLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 import { RATE_LIMITED_RETRY_DELAY_MS, useRetryCooldown } from './useRetryCooldown'
@@ -275,6 +276,7 @@ const initialWindow = Dimensions.get('window')
 afterEach(() => {
   onlineManager.setOnline(true)
   env.e2e = false
+  turnSentryOff()
   setWindowWidth(initialWindow.width, initialWindow.height)
 })
 
@@ -747,6 +749,7 @@ describe('upload problems', () => {
   })
 
   it('says something friendly for any other failure, and lets the same photo be tried again', async () => {
+    const reports = sentryReports()
     mockUploadPhoto.mockRejectedValueOnce(new AppError('UNKNOWN'))
     libraryGives('front')
     await openPhotos()
@@ -754,70 +757,77 @@ describe('upload problems', () => {
     await pressButton('Choose from library')
 
     expect(await screen.findByText('Something went wrong. Please try again.')).toBeOnTheScreen()
+    // Unexpected, so it is reported once (spec §9), named and without its message.
+    expect(reports()).toEqual(['UNKNOWN in uploadPhoto'])
     await pressButton('Try again')
     await screen.findByRole('radio', { name: 'Front photo, ready' })
     expect(uploadCall(1).id).toBe(uuid(1))
   })
 
-  it('deletes the photo it gave up on once another is saved for the view', async () => {
+  /** The server refusing the upload slot (VALIDATION) with `details`, as packages/api passes it on. */
+  const slotRefused = (details: string) =>
+    new AppError('VALIDATION', 'PAWPIN:VALIDATION', {
+      cause: { code: 'P0001', message: 'PAWPIN:VALIDATION', details, hint: null, status: 400 },
+    })
+
+  it('asks for the photo again when the server refuses its id, and gives the new attempt a new id', async () => {
+    // Ruling 26: the id of a deleted photo whose file is still queued is refused, and would be
+    // refused again, so "Try again" with the same id could never work.
+    mockUploadPhoto.mockRejectedValueOnce(slotRefused('id is already used by another photo'))
+    libraryGives('front')
+    await openPhotos()
+
+    await pressButton('Choose from library')
+
+    expect(
+      await screen.findByText('We couldn’t add that photo. Please add it again.'),
+    ).toBeOnTheScreen()
+    expect(tile('Front photo, needs a new photo')).toBeOnTheScreen()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+
+    // The same file chosen again is a new attempt, with a new id.
+    libraryGives('front')
+    await pressButton('Choose from library')
+    await screen.findByRole('radio', { name: 'Front photo, ready' })
+    expect(uploadCall(0).id).toBe(uuid(1))
+    expect(uploadCall(1).id).toBe(uuid(2))
+  })
+
+  it('says when the pet already has as many photos as it can keep, and offers no Try again', async () => {
+    serverPhotos = [readyPhoto('front', uuid(50))]
+    mockUploadPhoto.mockRejectedValueOnce(
+      slotRefused(`a pet can have at most ${LIMITS.photosPerPet} photos`),
+    )
+    libraryGives('front')
+    await openPhotos()
+    await screen.findByRole('radio', { name: 'Front photo, ready' })
+
+    await pressButton('Choose from library')
+
+    expect(
+      await screen.findByText(
+        'This pet already has the most photos it can keep. Remove one to add another.',
+      ),
+    ).toBeOnTheScreen()
+    expect(tile('Front photo, ready, earlier photo kept')).toBeOnTheScreen()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+  })
+
+  it('leaves a photo it gave up on to the server, which the next photo for the view replaces', async () => {
+    // Ruling 54: requesting the next photo for a view retires the view's pending photo on the
+    // server, so nothing is deleted from here (and nothing is lost when the screen is left).
     mockUploadPhoto.mockRejectedValueOnce(new AppError('NETWORK'))
     libraryGives('front')
     await openPhotos()
     await pressButton('Choose from library')
     await screen.findByText(OFFLINE)
-    // Until the view has a photo, the one that failed may still be wanted.
-    expect(mockDeletePhoto).not.toHaveBeenCalled()
 
     libraryGives('front', 'b')
     await pressButton('Choose from library')
 
     await screen.findByRole('radio', { name: 'Front photo, ready' })
-    await waitFor(() => expect(mockDeletePhoto).toHaveBeenCalledTimes(1))
-    // The first photo may have been left pending on the server, where it counts towards the limit.
-    expect(mockDeletePhoto).toHaveBeenCalledWith(fake.client, uuid(1))
-  })
-
-  it('deletes a photo the server refused once another is saved for the view', async () => {
-    mockUploadPhoto.mockRejectedValueOnce(new AppError('PHOTO_QUALITY'))
-    libraryGives('front')
-    await openPhotos()
-    await pressButton('Choose from library')
-    await screen.findByText('That photo didn’t pass our quality check — try again in daylight')
-
-    libraryGives('front', 'b')
-    await pressButton('Choose from library')
-
-    await waitFor(() => expect(mockDeletePhoto).toHaveBeenCalledWith(fake.client, uuid(1)))
-    expect(mockDeletePhoto).toHaveBeenCalledTimes(1)
-  })
-
-  it('deletes nothing when the same photo is sent again', async () => {
-    mockUploadPhoto.mockRejectedValueOnce(new AppError('NETWORK'))
-    libraryGives('front')
-    await openPhotos()
-    await pressButton('Choose from library')
-    await screen.findByText(OFFLINE)
-
-    await pressButton('Try again')
-
-    await screen.findByRole('radio', { name: 'Front photo, ready' })
+    expect(uploadCall(1).id).toBe(uuid(2))
     expect(mockDeletePhoto).not.toHaveBeenCalled()
-  })
-
-  it('does not mind when a photo it gave up on cannot be deleted', async () => {
-    mockDeletePhoto.mockRejectedValue(new AppError('NETWORK'))
-    mockUploadPhoto.mockRejectedValueOnce(new AppError('NETWORK'))
-    libraryGives('front')
-    await openPhotos()
-    await pressButton('Choose from library')
-    await screen.findByText(OFFLINE)
-
-    libraryGives('front', 'b')
-    await pressButton('Choose from library')
-
-    expect(await screen.findByRole('radio', { name: 'Front photo, ready' })).toBeOnTheScreen()
-    await waitFor(() => expect(mockDeletePhoto).toHaveBeenCalledTimes(1))
-    expect(screen.queryByTestId('auth-problem')).toBeNull()
   })
 
   it('asks Auth whether the session is gone when the server says UNAUTHENTICATED, and leads to sign-in if it is', async () => {
@@ -869,7 +879,7 @@ function waitTimers(setTimeoutSpy: jest.SpyInstance, clearTimeoutSpy: jest.SpyIn
 }
 
 describe('after the server says RATE_LIMITED', () => {
-  const WAIT = 'You can try again in a minute.'
+  const WAIT = 'Please wait a little, then try again.'
 
   beforeEach(() => {
     jest.useFakeTimers()

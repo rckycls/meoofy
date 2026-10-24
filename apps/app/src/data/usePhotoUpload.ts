@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { randomUUID } from 'expo-crypto'
-import { deletePhoto, uploadPhoto, type PetPhoto, type PhotoUpload } from '@pawpin/api'
+import { isPhotoLimitReached, uploadPhoto, type PetPhoto, type PhotoUpload } from '@pawpin/api'
 import { parseAppError, type PhotoView } from '@pawpin/core'
 
 import {
@@ -28,6 +28,11 @@ export type PhotoProblem =
   | 'RATE_LIMITED'
   | 'NETWORK'
   | 'UNKNOWN'
+  // The server refused the upload slot because the pet already has as many photos as it may keep.
+  | 'PHOTO_LIMIT'
+  // The server refused the upload slot for any other reason (VALIDATION): the same id would be
+  // refused again, for example the id of a deleted photo whose file is still queued (Ruling 26).
+  | 'REFUSED'
 
 /** Where sending the same photo again may work. The others need a new photo. */
 const RETRYABLE: readonly PhotoProblem[] = ['NETWORK', 'RATE_LIMITED', 'UNKNOWN']
@@ -42,7 +47,9 @@ type Phase = 'checking' | 'uploading' | 'error'
 type Attempt = { uri: string; id: string; photo: PreparedPhoto }
 
 function problemFor(error: unknown): PhotoProblem {
+  if (isPhotoLimitReached(error)) return 'PHOTO_LIMIT'
   const { code } = parseAppError(error)
+  if (code === 'VALIDATION') return 'REFUSED'
   return code === 'PHOTO_QUALITY' || code === 'RATE_LIMITED' || code === 'NETWORK'
     ? code
     : 'UNKNOWN'
@@ -69,13 +76,13 @@ function withSaved(photos: PetPhoto[] | undefined, saved: PetPhoto): PetPhoto[] 
  *   fails in a way that may pass (network, rate limit, anything unexpected) the prepared photo and
  *   its id are kept, and `retry` (or `upload` with the same `uri`) sends the same photo with the
  *   same id, which the server treats as one upload however often it arrives.
+ * - A photo the server refuses (its quality, the photo limit, a refused upload slot) is not kept:
+ *   the same photo with the same id would be refused again, so the person adds a photo again,
+ *   which is a new attempt with a new id.
  * - A photo that is given up on (another one is chosen, or the server refuses it) may be left
- *   `pending` on the server, where it counts towards the pet's photo limit until cleanup removes
- *   it a day later. When a new photo for the view is saved, the ones given up on for that view are
- *   deleted on a best-effort basis (a failed delete is ignored; cleanup still removes it). This
- *   only runs after a save, so it keeps abandoned photos from piling up in the ordinary flow. It
- *   does not help a pet that is already at the limit: the save it waits for is what the server
- *   refuses.
+ *   `pending` on the server. Nothing here deletes it: the server replaces a view's pending photo
+ *   when the next photo for that view is requested (Ruling 54), so it never fills the pet's photo
+ *   limit, and cleanup removes whatever is left a day later.
  */
 export function usePhotoUpload(
   petId: string,
@@ -93,8 +100,6 @@ export function usePhotoUpload(
   const [phase, setPhase] = useState<Partial<Record<PhotoView, Phase>>>({})
   const [problem, setProblem] = useState<Partial<Record<PhotoView, PhotoProblem>>>({})
   const attempts = useRef(new Map<PhotoView, Attempt>())
-  // The ids of photos given up on, per view, until the view has a saved photo.
-  const abandoned = useRef(new Map<PhotoView, string[]>())
   // A ref, not state: two presses can arrive before a re-render.
   const running = useRef(new Set<PhotoView>())
   const onSavedRef = useRef(onSaved)
@@ -106,6 +111,8 @@ export function usePhotoUpload(
     // Ask the server even when the device believes it is offline: a failure is reported at once,
     // where the default would hold the request and leave the screen waiting.
     networkMode: 'always',
+    // Names the operation when an unexpected failure is reported (QueryProvider's MutationCache).
+    mutationKey: ['uploadPhoto'],
     mutationFn: (photo: PhotoUpload) => uploadPhoto(client, photo),
     onSuccess: (saved) => {
       // The new photo shows at once; the refresh then confirms the server's list.
@@ -125,12 +132,9 @@ export function usePhotoUpload(
         show('error')
         onFailedRef.current?.(view, why)
       }
-      /** Gives up on the photo kept for the view; its id may be a pending photo on the server. */
+      /** Gives up on the photo kept for the view: the next one is a new attempt with a new id. */
       const abandon = () => {
-        const attempt = attempts.current.get(view)
-        if (attempt === undefined) return
         attempts.current.delete(view)
-        abandoned.current.set(view, [...(abandoned.current.get(view) ?? []), attempt.id])
       }
       setProblem((all) => {
         const rest = { ...all }
@@ -168,12 +172,6 @@ export function usePhotoUpload(
           return fail(why)
         }
         attempts.current.delete(view)
-        // The new photo replaced whatever the view had; delete the ones that were given up on. If
-        // one can't be deleted now, cleanup removes it.
-        for (const id of abandoned.current.get(view) ?? []) {
-          void deletePhoto(client, id).catch(() => undefined)
-        }
-        abandoned.current.delete(view)
         show(undefined)
         onSavedRef.current?.(view)
       } finally {
