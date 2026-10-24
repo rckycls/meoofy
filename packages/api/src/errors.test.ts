@@ -1,7 +1,8 @@
 import { AppError, parseAppError } from '@pawpin/core'
 import { describe, expect, it } from 'vitest'
-import { normalizeSupabaseError, toAppError } from './errors'
-import { offline, respond, stubClient } from './testSupport'
+import { normalizeSupabaseError, toAppError, withStatus } from './errors'
+import { listPets } from './pets'
+import { offline, respond, stubClient, type Fetch } from './testSupport'
 
 const codeOf = (e: unknown) => parseAppError(normalizeSupabaseError(e)).code
 
@@ -55,6 +56,42 @@ describe('normalizeSupabaseError: network failures become a fetch TypeError', ()
     expect(error?.name).toBe('StorageUnknownError')
     expect(normalizeSupabaseError(error)).toBe(error)
     expect(codeOf(error)).toBe('UNKNOWN')
+  })
+
+  // postgrest-js's own retry is off (`db.retry: false`), so a read the gateway can't serve right
+  // now reaches the app as an error with that status: it may pass on its own, like a fetch failure.
+  it.each([503, 520])('a PostgREST read answered %i (JSON body)', async (status) => {
+    const { error, status: carried } = await stubClient(
+      respond(status, { message: 'upstream connect error', code: '', details: null, hint: null }),
+    )
+      .from('pets')
+      .select('id')
+    expect(carried).toBe(status)
+    expectNetwork(withStatus(error!, carried))
+  })
+
+  it.each([503, 520])(
+    'a PostgREST read answered %i with a page instead of JSON',
+    async (status) => {
+      const page: Fetch = async () =>
+        new Response('<html>origin unavailable</html>', {
+          status,
+          headers: { 'content-type': 'text/html' },
+        })
+      const { error, status: carried } = await stubClient(page).from('pets').select('id')
+      expectNetwork(withStatus(error!, carried))
+    },
+  )
+
+  it('a read through the API answered 503 rejects with NETWORK, which the app retries', async () => {
+    await expect(
+      listPets(stubClient(respond(503, { message: 'unavailable' }))),
+    ).rejects.toMatchObject({ name: 'AppError', code: 'NETWORK', retryable: true })
+  })
+
+  it('leaves other 5xx answers alone', () => {
+    expect(codeOf({ message: 'boom', status: 500 })).toBe('UNKNOWN')
+    expect(codeOf({ message: 'bad gateway', status: 502 })).toBe('UNKNOWN')
   })
 
   it('leaves a TypeError that is not a fetch failure alone', () => {

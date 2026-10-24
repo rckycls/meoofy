@@ -21,11 +21,19 @@ function statusOf(e: Record<string, unknown>): number | undefined {
 const networkError = (cause: unknown) => new TypeError('Network request failed', { cause })
 
 /**
+ * Answers that mean the service could not be reached for a moment, not that the request was
+ * wrong: 503 (the gateway or PostgREST is unavailable) and 520 (an edge proxy got no usable
+ * answer from the origin). postgrest-js's own retry is off, so these reach the app.
+ */
+const UNAVAILABLE: ReadonlySet<number> = new Set([503, 520])
+
+/**
  * Rewrites the error shapes supabase-js produces into ones `parseAppError` understands:
  * - Network failures become `TypeError('Network request failed')` (so NETWORK, retryable):
  *   auth-js `AuthRetryableFetchError` (no response, or a 5xx), storage-js `StorageUnknownError`
- *   wrapping a fetch failure, functions-js `FunctionsFetchError`, and PostgREST error objects
- *   whose message starts with `TypeError:` (postgrest-js turns a failed fetch into one).
+ *   wrapping a fetch failure, functions-js `FunctionsFetchError`, PostgREST error objects
+ *   whose message starts with `TypeError:` (postgrest-js turns a failed fetch into one), and any
+ *   answer with status 503 or 520 (the service is unavailable for a moment).
  * - Permission denied (`42501`, what anon gets from an `api` view or function) and any 401
  *   become UNAUTHENTICATED; so does an expired or wrong email code (`otp_expired`).
  * - A 429 (Auth's email, OTP and sign-in rate limits) becomes RATE_LIMITED.
@@ -46,6 +54,7 @@ export function normalizeSupabaseError(e: unknown): unknown {
   }
 
   const status = statusOf(e)
+  if (status !== undefined && UNAVAILABLE.has(status)) return networkError(e)
   if (e.code === '42501' || status === 401 || e.code === 'otp_expired') {
     return new AppError('UNAUTHENTICATED', message, { cause: e })
   }
