@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { ErrorBoundaryProps } from 'expo-router'
-import { Button, ScreenShell, colors, space, textStyle, type } from '@pawpin/ui'
+import { Button, ScreenShell, colors, space, textStyle, type } from '@meoofy/ui'
 
 import { ContentColumn } from '../layout/ContentColumn'
 import { errorCopy } from './copy'

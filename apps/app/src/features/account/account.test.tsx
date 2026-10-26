@@ -2,9 +2,9 @@ import { Dimensions, StyleSheet, Text } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library'
-import { deleteAccount, getProfile, signOut, updateDisplayName, type Profile } from '@pawpin/api'
-import { AppError } from '@pawpin/core'
-import { colors } from '@pawpin/ui'
+import { deleteAccount, getProfile, signOut, updateDisplayName, type Profile } from '@meoofy/api'
+import { AppError } from '@meoofy/core'
+import { colors } from '@meoofy/ui'
 
 import AuthLayout from '../../../app/(auth)/_layout'
 import YourName from '../../../app/(auth)/your-name'
@@ -15,8 +15,8 @@ import { sentryReports, turnSentryOff } from '../../testing/sentry'
 import { testRootStackLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 
-jest.mock('@pawpin/api', () => {
-  const actual = jest.requireActual<typeof import('@pawpin/api')>('@pawpin/api')
+jest.mock('@meoofy/api', () => {
+  const actual = jest.requireActual<typeof import('@meoofy/api')>('@meoofy/api')
   return {
     ...actual,
     getProfile: jest.fn(),
@@ -125,7 +125,7 @@ beforeEach(async () => {
   // Back to the real sign-out (which ends the fake session), dropping any one-off behaviour.
   mockSignOut
     .mockReset()
-    .mockImplementation(jest.requireActual<typeof import('@pawpin/api')>('@pawpin/api').signOut)
+    .mockImplementation(jest.requireActual<typeof import('@meoofy/api')>('@meoofy/api').signOut)
 })
 
 const initialWindow = Dimensions.get('window')

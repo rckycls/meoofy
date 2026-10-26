@@ -15,9 +15,9 @@ select plan(22);
 
 do $$
 begin
-  perform set_config('pawpin.u', tests.create_user('strip-u@pawpin.test')::text, true);
-  perform set_config('pawpin.k', tests.create_user('strip-k@pawpin.test')::text, true);
-  perform set_config('pawpin.last_event', coalesce(max(id), 0)::text, true) from audit.events;
+  perform set_config('meoofy.u', tests.create_user('strip-u@meoofy.test')::text, true);
+  perform set_config('meoofy.k', tests.create_user('strip-k@meoofy.test')::text, true);
+  perform set_config('meoofy.last_event', coalesce(max(id), 0)::text, true) from audit.events;
 end
 $$;
 
@@ -51,7 +51,7 @@ select results_eq(
 -- ---------------------------------------------------------------------------
 -- Events that reference U as actor and as subject
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.u')::uuid);
+select tests.authenticate_as(current_setting('meoofy.u')::uuid);
 select lives_ok($$ select api.update_profile('Uma') $$, 'U updates their profile (U is actor and subject)');
 select lives_ok($$ select api.complete_onboarding('owner') $$,
   'U completes onboarding (U is actor and subject)');
@@ -62,7 +62,7 @@ select lives_ok(
   $$ select api.request_photo_upload('a7000000-0000-4000-8000-00000000f001',
        'a7000000-0000-4000-8000-000000000001', 'front', 'image/jpeg', 1000) $$,
   'U opens a photo upload (U is actor, the photo is the subject)');
-select tests.authenticate_as(current_setting('pawpin.k')::uuid);
+select tests.authenticate_as(current_setting('meoofy.k')::uuid);
 select lives_ok($$ select api.update_profile('Kai') $$, 'K updates their own profile');
 select lives_ok(
   $$ select api.create_pet('a7000000-0000-4000-8000-000000000002', 'Kit', 'cat', null, null) $$,
@@ -72,7 +72,7 @@ select tests.clear_auth();
 -- An event by K about U, a system event about U's photo, and the system's account.deleted (no
 -- actor, no subject).
 insert into audit.events (actor_id, action, subject_type, subject_id, metadata)
-values (current_setting('pawpin.k')::uuid, 'user.reported', 'user', current_setting('pawpin.u')::uuid,
+values (current_setting('meoofy.k')::uuid, 'user.reported', 'user', current_setting('meoofy.u')::uuid,
         '{"reason": "spam"}'),
        (null, 'photo.expired', 'photo', 'a7000000-0000-4000-8000-00000000f001', '{"view": "front"}');
 set local role service_role;
@@ -81,26 +81,26 @@ reset role;
 
 -- Rejected sign-ups: U's address (logged before U was invited, in another case) and K's.
 insert into identity.signup_rejections (email)
-values ('Strip-U@Pawpin.test'), ('strip-u@pawpin.test'), ('strip-k@pawpin.test');
+values ('Strip-U@Meoofy.test'), ('strip-u@meoofy.test'), ('strip-k@meoofy.test');
 
 select is(
   (select count(*)::int from audit.events
-    where current_setting('pawpin.u')::uuid in (actor_id, subject_id)),
+    where current_setting('meoofy.u')::uuid in (actor_id, subject_id)),
   5, 'before the delete, five events reference U');
 
 create temp table before_delete as
 select id, action, subject_type, created_at
-  from audit.events where id > current_setting('pawpin.last_event')::bigint;
+  from audit.events where id > current_setting('meoofy.last_event')::bigint;
 
 -- ---------------------------------------------------------------------------
 -- Delete U
 -- ---------------------------------------------------------------------------
-select lives_ok($$ delete from auth.users where id = current_setting('pawpin.u')::uuid $$,
+select lives_ok($$ delete from auth.users where id = current_setting('meoofy.u')::uuid $$,
   'deleting U as postgres (the dashboard / SQL path) succeeds');
 
 select is(
   (select count(*)::int from audit.events
-    where current_setting('pawpin.u')::uuid in (actor_id, subject_id)),
+    where current_setting('meoofy.u')::uuid in (actor_id, subject_id)),
   0, 'no event references U in actor_id or subject_id any more');
 select is(
   (select count(*)::int from audit.events
@@ -109,34 +109,34 @@ select is(
   0, 'no event references U''s pet or photo any more');
 select results_eq(
   $$ select id, action, subject_type, created_at from audit.events
-      where id > current_setting('pawpin.last_event')::bigint order by id $$,
+      where id > current_setting('meoofy.last_event')::bigint order by id $$,
   $$ select id, action, subject_type, created_at from before_delete order by id $$,
   'every event survives with its action, subject type and time'
 );
 select results_eq(
   $$ select action, actor_id, subject_id, metadata from audit.events
-      where id > current_setting('pawpin.last_event')::bigint order by id $$,
+      where id > current_setting('meoofy.last_event')::bigint order by id $$,
   $$ values ('profile.updated', null::uuid, null::uuid, '{}'::jsonb),
             ('onboarding.completed', null, null, '{}'),
             ('pet.created', null, null, '{}'),
             ('photo.upload_requested', null, null, '{}'),
-            ('profile.updated', current_setting('pawpin.k')::uuid, current_setting('pawpin.k')::uuid, '{}'),
-            ('pet.created', current_setting('pawpin.k')::uuid,
+            ('profile.updated', current_setting('meoofy.k')::uuid, current_setting('meoofy.k')::uuid, '{}'),
+            ('pet.created', current_setting('meoofy.k')::uuid,
              'a7000000-0000-4000-8000-000000000002'::uuid, '{"species": "cat"}'),
-            ('user.reported', current_setting('pawpin.k')::uuid, null, '{}'),
+            ('user.reported', current_setting('meoofy.k')::uuid, null, '{}'),
             ('photo.expired', null, null, '{}'),
             ('account.deleted', null, null, '{}') $$,
   'U''s events keep only the action and the time; events about U lose their subject and metadata; K keeps everything of theirs'
 );
 select results_eq(
   $$ select email::text from identity.signup_rejections
-      where email::text ilike 'strip-%@pawpin.test' order by 1 $$,
-  $$ values ('strip-k@pawpin.test') $$,
+      where email::text ilike 'strip-%@meoofy.test' order by 1 $$,
+  $$ values ('strip-k@meoofy.test') $$,
   'U''s rejected sign-ups are deleted, whatever their case; K''s stay'
 );
 select results_eq(
   $$ select actor_id, subject_id, metadata from audit.events
-      where action = 'account.deleted' and id > current_setting('pawpin.last_event')::bigint $$,
+      where action = 'account.deleted' and id > current_setting('meoofy.last_event')::bigint $$,
   $$ values (null::uuid, null::uuid, '{}'::jsonb) $$,
   'the account.deleted event still has no actor, no subject and empty metadata'
 );
@@ -144,28 +144,28 @@ select results_eq(
 -- One statement deleting several users strips each of them.
 do $$
 declare
-  v uuid := tests.create_user('strip-v@pawpin.test');
-  w uuid := tests.create_user('strip-w@pawpin.test');
+  v uuid := tests.create_user('strip-v@meoofy.test');
+  w uuid := tests.create_user('strip-w@meoofy.test');
 begin
-  perform set_config('pawpin.v', v::text, true);
-  perform set_config('pawpin.w', w::text, true);
+  perform set_config('meoofy.v', v::text, true);
+  perform set_config('meoofy.w', w::text, true);
   insert into audit.events (actor_id, action, subject_type, subject_id)
   values (v, 'profile.updated', 'profile', v), (w, 'profile.updated', 'profile', w),
          (v, 'user.reported', 'user', w);
 end
 $$;
 delete from auth.users
- where id in (current_setting('pawpin.v')::uuid, current_setting('pawpin.w')::uuid);
+ where id in (current_setting('meoofy.v')::uuid, current_setting('meoofy.w')::uuid);
 select is(
   (select count(*)::int from audit.events
-    where current_setting('pawpin.v')::uuid in (actor_id, subject_id)
-       or current_setting('pawpin.w')::uuid in (actor_id, subject_id)),
+    where current_setting('meoofy.v')::uuid in (actor_id, subject_id)
+       or current_setting('meoofy.w')::uuid in (actor_id, subject_id)),
   0, 'a statement deleting two users strips both');
 
 -- ---------------------------------------------------------------------------
 -- audit.events stays append-only for clients
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.k')::uuid);
+select tests.authenticate_as(current_setting('meoofy.k')::uuid);
 select throws_ok($$ update audit.events set actor_id = null $$, '42501', null,
   'authenticated cannot update audit events');
 select throws_ok($$ delete from audit.events $$, '42501', null,

@@ -149,7 +149,7 @@ describe('pnpm gen:sql-limits', () => {
 
   /** A migrations folder holding a first limits migration (as `edit` leaves it) and a later one. */
   function migrationsWith(edit: (sql: string) => string): string {
-    const dir = mkdtempSync(join(tmpdir(), 'pawpin-limits-'))
+    const dir = mkdtempSync(join(tmpdir(), 'meoofy-limits-'))
     dirs.push(dir)
     writeFileSync(join(dir, FIRST_LIMITS_MIGRATION), edit(limitsMigrationSql()))
     writeFileSync(join(dir, LATER), 'select 1;\n')

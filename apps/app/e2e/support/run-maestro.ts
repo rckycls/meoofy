@@ -15,7 +15,7 @@ import { allowlistOwner, removeOwner } from './database.ts'
 import { clearInbox } from './mailpit.ts'
 
 const flows = fileURLToPath(new URL('../maestro/', import.meta.url))
-const email = `e2e+${Date.now()}-${randomUUID().slice(0, 8)}@pawpin.test`
+const email = `e2e+${Date.now()}-${randomUUID().slice(0, 8)}@meoofy.test`
 
 let status = 1
 try {

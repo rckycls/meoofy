@@ -1,4 +1,4 @@
-import { LIMITS } from '@pawpin/core'
+import { LIMITS } from '@meoofy/core'
 
 const petCount = (count: number) => `${count} ${count === 1 ? 'pet' : 'pets'}`
 

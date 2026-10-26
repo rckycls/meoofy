@@ -1,7 +1,7 @@
 // checkSession tells a dead session from a temporary failure after a request came back
 // UNAUTHENTICATED, so the app signs out only when Auth has really refused the session.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { checkSession, type PawpinClient } from './index'
+import { checkSession, type MeoofyClient } from './index'
 import { offline, refreshed, respond, signedInStubClient, stubClient } from './testSupport'
 
 const ONE_HOUR = 3600
@@ -14,7 +14,7 @@ afterEach(() => {
  * supabase-js retries a refresh that gets no answer (or a 5xx) with backoff for up to 30 s;
  * fake timers run those retries without the wait.
  */
-async function checkWithRetries(client: PawpinClient) {
+async function checkWithRetries(client: MeoofyClient) {
   vi.useFakeTimers()
   const outcome = checkSession(client)
   await vi.runAllTimersAsync()

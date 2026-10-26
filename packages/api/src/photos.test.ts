@@ -1,6 +1,6 @@
 // Photos without a network: the request → upload → confirm sequence, the storage call it makes
 // (Ruling 21), signed URLs, row mapping and validation before requests.
-import { AppError, LIMITS, type PhotoView } from '@pawpin/core'
+import { AppError, LIMITS, type PhotoView } from '@meoofy/core'
 import { describe, expect, it, vi } from 'vitest'
 import { deletePhoto, isPhotoLimitReached, listPhotos, uploadPhoto } from './index'
 import { offline, stubClient, type Fetch } from './testSupport'
@@ -187,7 +187,7 @@ describe('uploadPhoto', () => {
       const url = new URL(String(input))
       calls.push(url.pathname)
       if (url.pathname === '/rest/v1/rpc/request_photo_upload') {
-        return json(400, { code: 'P0001', message: 'PAWPIN:VALIDATION' })
+        return json(400, { code: 'P0001', message: 'MEOOFY:VALIDATION' })
       }
       if (url.pathname === '/rest/v1/pet_photos') {
         expect(url.searchParams.get('id')).toBe(`eq.${PHOTO}`)
@@ -216,7 +216,7 @@ describe('uploadPhoto', () => {
   ])('a VALIDATION refusal of the slot is rethrown when %s', async (_label, rows) => {
     const fetch: Fetch = async (input) =>
       new URL(String(input)).pathname === '/rest/v1/rpc/request_photo_upload'
-        ? json(400, { code: 'P0001', message: 'PAWPIN:VALIDATION' })
+        ? json(400, { code: 'P0001', message: 'MEOOFY:VALIDATION' })
         : json(200, rows)
     await expect(uploadPhoto(stubClient(fetch), args)).rejects.toMatchObject({
       name: 'AppError',
@@ -228,7 +228,7 @@ describe('uploadPhoto', () => {
     const server = uploadServer()
     const fetch: Fetch = async (input, init) =>
       new URL(String(input)).pathname === '/rest/v1/rpc/confirm_photo'
-        ? json(400, { code: 'P0001', message: 'PAWPIN:PHOTO_QUALITY' })
+        ? json(400, { code: 'P0001', message: 'MEOOFY:PHOTO_QUALITY' })
         : server.fetch(input, init)
 
     await expect(uploadPhoto(stubClient(fetch), args)).rejects.toMatchObject({
@@ -250,7 +250,7 @@ describe('isPhotoLimitReached', () => {
   const refusal = (details: string | null) =>
     uploadPhoto(
       stubClient(
-        refusingSlot({ code: 'P0001', message: 'PAWPIN:VALIDATION', details, hint: null }),
+        refusingSlot({ code: 'P0001', message: 'MEOOFY:VALIDATION', details, hint: null }),
       ),
       args,
     ).catch((e: unknown) => e)
@@ -369,7 +369,7 @@ describe('deletePhoto', () => {
   })
 
   it('resolves when the server answers NOT_OWNER (already gone, as deletePet does)', async () => {
-    const fetch = async () => json(400, { code: 'P0001', message: 'PAWPIN:NOT_OWNER' })
+    const fetch = async () => json(400, { code: 'P0001', message: 'MEOOFY:NOT_OWNER' })
     await expect(deletePhoto(stubClient(fetch), PHOTO)).resolves.toBeUndefined()
   })
 

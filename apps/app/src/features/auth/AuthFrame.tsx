@@ -9,7 +9,7 @@ import {
   type,
   type Flow,
   type StickerName,
-} from '@pawpin/ui'
+} from '@meoofy/ui'
 
 import { ContentColumn } from '../../layout/ContentColumn'
 

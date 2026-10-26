@@ -59,8 +59,8 @@ describe('scrubString', () => {
     expect(scrubString('cannot read file:///var/mobile/Containers/Data/a/b/photo.jpg now')).toBe(
       'cannot read [path] now',
     )
-    expect(scrubString('at /Users/rocky/work/pawpin/src/a.ts:3')).toBe(
-      'at /Users/[user]/work/pawpin/src/a.ts:3',
+    expect(scrubString('at /Users/rocky/work/meoofy/src/a.ts:3')).toBe(
+      'at /Users/[user]/work/meoofy/src/a.ts:3',
     )
   })
 
@@ -142,7 +142,7 @@ describe('scrubEvent', () => {
           {
             type: 'Error',
             value: 'read file:///var/mobile/x/y.jpg',
-            stacktrace: { frames: [{ filename: '/Users/rocky/pawpin/src/a.ts', lineno: 3 }] },
+            stacktrace: { frames: [{ filename: '/Users/rocky/meoofy/src/a.ts', lineno: 3 }] },
           },
         ],
       },
@@ -155,7 +155,7 @@ describe('scrubEvent', () => {
           {
             type: 'Error',
             value: 'read [path]',
-            stacktrace: { frames: [{ filename: '/Users/[user]/pawpin/src/a.ts', lineno: 3 }] },
+            stacktrace: { frames: [{ filename: '/Users/[user]/meoofy/src/a.ts', lineno: 3 }] },
           },
         ],
       },

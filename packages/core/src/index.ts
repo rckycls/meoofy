@@ -1,4 +1,4 @@
-export const PACKAGE = '@pawpin/core'
+export const PACKAGE = '@meoofy/core'
 
 export * from './limits'
 export * from './tiers'

@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { randomUUID } from 'expo-crypto'
-import { isPhotoLimitReached, uploadPhoto, type PetPhoto, type PhotoUpload } from '@pawpin/api'
-import { parseAppError, type PhotoView } from '@pawpin/core'
+import { isPhotoLimitReached, uploadPhoto, type PetPhoto, type PhotoUpload } from '@meoofy/api'
+import { parseAppError, type PhotoView } from '@meoofy/core'
 
 import {
   preparePhoto,

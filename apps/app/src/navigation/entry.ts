@@ -1,4 +1,4 @@
-import type { OnboardingPath } from '@pawpin/core'
+import type { OnboardingPath } from '@meoofy/core'
 
 export type EntryRoute =
   | '/(onboarding)/welcome'

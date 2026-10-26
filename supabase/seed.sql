@@ -2,5 +2,5 @@
 
 -- Pilot allowlist: the accounts the app and the end-to-end tests sign in with locally.
 insert into identity.pilot_allowlist (email)
-values ('owner@pawpin.test'), ('e2e@pawpin.test')
+values ('owner@meoofy.test'), ('e2e@meoofy.test')
 on conflict do nothing;

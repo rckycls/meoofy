@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { SignJWT } from 'jose'
 import jpeg from 'jpeg-js'
 import pg from 'pg'
-import { createPawpinClient, type PawpinClient } from '../src'
+import { createMeoofyClient, type MeoofyClient } from '../src'
 import type { Database } from '../src/database.types'
 
 export const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'
@@ -28,12 +28,12 @@ export const admin = createClient<Database>(SUPABASE_URL, SERVICE_ROLE_KEY, {
 })
 
 /** A signed-out app client, as the app creates it. */
-export function anonClient(): PawpinClient {
-  return createPawpinClient({ url: SUPABASE_URL, anonKey: ANON_KEY })
+export function anonClient(): MeoofyClient {
+  return createMeoofyClient({ url: SUPABASE_URL, anonKey: ANON_KEY })
 }
 
 /** A client that sends `token` as its access token, bypassing Auth (for crafted JWTs). */
-export function clientWithAccessToken(token: string): PawpinClient {
+export function clientWithAccessToken(token: string): MeoofyClient {
   return createClient<Database>(SUPABASE_URL, ANON_KEY, {
     db: { schema: 'api' },
     accessToken: async () => token,
@@ -65,7 +65,7 @@ export function track(email: string): string {
 }
 
 export function uniqueEmail(prefix = 'owner'): string {
-  return `${prefix}-${randomUUID()}@pawpin.test`
+  return `${prefix}-${randomUUID()}@meoofy.test`
 }
 
 /** Adds an email to the pilot allowlist, so the sign-up hook lets it through. */
@@ -83,7 +83,7 @@ export async function allowlist(email: string): Promise<string> {
  */
 export async function newOwner(
   email: string = uniqueEmail(),
-): Promise<{ client: PawpinClient; userId: string; email: string }> {
+): Promise<{ client: MeoofyClient; userId: string; email: string }> {
   const normalized = await allowlist(email)
   const password = `pw-${randomUUID()}`
   const { data, error } = await admin.auth.admin.createUser({

@@ -5,7 +5,7 @@
 # Run it with `pnpm test:e2e:ios`, which allowlists a fresh address, passes it in as EMAIL, and
 # removes it afterwards. It needs the local Supabase stack, a booted simulator, and a development
 # build installed that was made with EXPO_PUBLIC_E2E=1 (that is what shows "Use test photo").
-appId: com.pawpin.pilot
+appId: com.meoofy.pilot
 name: Registry happy path
 ---
 # A clean start: no stored session, no onboarding flag, no cached pets.
@@ -22,7 +22,7 @@ name: Registry happy path
 - tapOn: 'Sounds good'
 
 # Sign in with an emailed code. Return on the keyboard submits the field.
-- assertVisible: 'Welcome to PawPin'
+- assertVisible: 'Welcome to Meoofy'
 - tapOn:
     id: 'email-input'
 - inputText: ${EMAIL}
@@ -45,7 +45,7 @@ name: Registry happy path
 - assertVisible: 'You’re all set, Alex.'
 
 # Home starts empty (S01).
-- tapOn: 'Explore PawPin'
+- tapOn: 'Explore Meoofy'
 - assertVisible: 'Your circle starts here'
 - tapOn: 'Add my first pet'
 

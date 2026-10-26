@@ -81,8 +81,8 @@ function resolveProfile(eas: EasJson, name: string): EasProfile {
 }
 
 describe('app.config.ts', () => {
-  it('names the iOS app com.pawpin.pilot', () => {
-    expect(config.ios?.bundleIdentifier).toBe('com.pawpin.pilot')
+  it('names the iOS app com.meoofy.pilot', () => {
+    expect(config.ios?.bundleIdentifier).toBe('com.meoofy.pilot')
   })
 
   it('turns on Sign in with Apple for iOS', () => {
@@ -104,20 +104,20 @@ describe('app.config.ts', () => {
     }, 60_000)
 
     it('keeps the bundle id', () => {
-      expect(resolved.ios?.bundleIdentifier).toBe('com.pawpin.pilot')
+      expect(resolved.ios?.bundleIdentifier).toBe('com.meoofy.pilot')
     })
 
     it('tells the person why the camera is used, which App Store review reads', () => {
       expect(plist.NSCameraUsageDescription).toEqual(expect.stringMatching(/\S/))
       expect(plist.NSCameraUsageDescription).toBe(
-        'PawPin uses the camera to take reference photos of your pet.',
+        'Meoofy uses the camera to take reference photos of your pet.',
       )
     })
 
     it('tells the person why the photo library is used', () => {
       expect(plist.NSPhotoLibraryUsageDescription).toEqual(expect.stringMatching(/\S/))
       expect(plist.NSPhotoLibraryUsageDescription).toBe(
-        'PawPin uses your photo library so you can choose reference photos of your pet.',
+        'Meoofy uses your photo library so you can choose reference photos of your pet.',
       )
     })
 

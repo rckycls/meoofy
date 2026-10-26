@@ -1,5 +1,5 @@
 // delete-account: POST with the caller's JWT deletes the caller's account (204), or answers 401
-// {"error":"PAWPIN:UNAUTHENTICATED"}. The logic is in ../_shared/deleteAccount.ts; this file only
+// {"error":"MEOOFY:UNAUTHENTICATED"}. The logic is in ../_shared/deleteAccount.ts; this file only
 // wires it to Supabase with the service role.
 import { deleteAccountHandler } from '../_shared/deleteAccount.ts'
 import { listAllPaths } from '../_shared/storage.ts'

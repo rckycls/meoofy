@@ -198,7 +198,7 @@ finish() {
 # the whole file before the first prompt, so an edit mid-run can't break it.
 # ──────────────────────────────────────────────────────────────────────────
 
-# Pilot setup for PawPin: the stages below are specific to this repository.
+# Pilot setup for Meoofy: the stages below are specific to this repository.
 #
 # What this wizard does and does not do:
 #   - It guides you through the pages and commands only the owner can use (Apple, Supabase, Sentry,
@@ -347,7 +347,7 @@ TOTAL_STAGES=20
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 ENV_FILE="$PILOT_ENV_FILE"
 
-banner "PawPin pilot setup: Apple, Supabase, Sentry, EAS"
+banner "Meoofy pilot setup: Apple, Supabase, Sentry, EAS"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────
 stage "Before you start"
@@ -406,13 +406,13 @@ stage "Bundle id and App ID"
 BUNDLE_ID="$(sed -n "s/.*bundleIdentifier: '\([^']*\)'.*/\1/p" apps/app/app.config.ts | head -n1)"
 if [[ -z "$BUNDLE_ID" ]]; then
   warn "Could not read ios.bundleIdentifier from apps/app/app.config.ts."
-  ask_match BUNDLE_ID "Bundle id:" '^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$' "reverse-DNS, like com.pawpin.pilot"
+  ask_match BUNDLE_ID "Bundle id:" '^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$' "reverse-DNS, like com.meoofy.pilot"
 fi
 say "The app's iOS bundle id is  $BOLD$BUNDLE_ID$RESET  (apps/app/app.config.ts)."
 note "It cannot be changed once the app is in App Store Connect, so decide now."
 if confirm "Use a different bundle id?"; then
   old_id="$BUNDLE_ID"
-  ask_match BUNDLE_ID "New bundle id:" '^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$' "reverse-DNS, like com.yourname.pawpin"
+  ask_match BUNDLE_ID "New bundle id:" '^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$' "reverse-DNS, like com.yourname.meoofy"
   if [[ "$BUNDLE_ID" != "$old_id" ]]; then
     say "I will replace $old_id with $BUNDLE_ID in these files:"
     changed_files=()
@@ -441,7 +441,7 @@ printf '\n'
 say "Register it as an App ID, with Sign in with Apple switched on:"
 open_url "https://developer.apple.com/account/resources/identifiers/add/bundleId"
 step "Choose 'App IDs', then 'App', then Continue."
-step "Description: PawPin.  Bundle ID: Explicit, $BUNDLE_ID"
+step "Description: Meoofy.  Bundle ID: Explicit, $BUNDLE_ID"
 step "Under Capabilities tick 'Sign in with Apple', then Continue and Register."
 pause "App ID registered? Press Enter."
 
@@ -450,9 +450,9 @@ stage "App Store Connect app record"
 say "TestFlight needs an app record that uses the bundle id above."
 open_url "https://appstoreconnect.apple.com/apps"
 step "Click the + button, then 'New App'."
-step "Platforms: iOS.  Name: PawPin (the name must be free in the App Store; choose another if not)."
+step "Platforms: iOS.  Name: Meoofy (the name must be free in the App Store; choose another if not)."
 step "Primary language: your choice.  Bundle ID: pick $BUNDLE_ID from the list."
-step "SKU: any unique text, for example pawpin-pilot.  User access: Full Access.  Create."
+step "SKU: any unique text, for example meoofy-pilot.  User access: Full Access.  Create."
 pause "App record created? Press Enter."
 note "EAS Submit asks for the app's numeric Apple ID later if it needs it (App Information)."
 
@@ -460,7 +460,7 @@ note "EAS Submit asks for the app's numeric Apple ID later if it needs it (App I
 stage "Supabase project"
 say "One hosted project holds the pilot: database, sign-in, photo storage and the two functions."
 open_url "https://supabase.com/dashboard/new"
-step "Pick your organisation (on the Pro plan), name the project pawpin-pilot."
+step "Pick your organisation (on the Pro plan), name the project meoofy-pilot."
 step "Set a strong database password and keep it in your password manager. The wizard never asks for it."
 step "Pick the region closest to your testers, then Create new project and wait for it to be ready."
 pause "Project ready? Press Enter."
@@ -519,14 +519,14 @@ offer_run . "Call the function without a sign-in." \
   curl -sS -i -X POST "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/delete-account"
 printf '\n'
 say "Read the answer:"
-step 'A body of  {"error":"PAWPIN:UNAUTHENTICATED"}  means the function itself answered: all good.'
+step 'A body of  {"error":"MEOOFY:UNAUTHENTICATED"}  means the function itself answered: all good.'
 step 'A gateway message such as "Missing authorization header" or "Invalid JWT" means the platform'
 step "checked the JWT first. Re-deploy with:"
 show_block "pnpm exec supabase functions deploy delete-account storage-cleanup --no-verify-jwt"
-if confirm "Did you see PAWPIN:UNAUTHENTICATED?"; then
+if confirm "Did you see MEOOFY:UNAUTHENTICATED?"; then
   note "verify_jwt = false is honoured."
 else
-  SKIPPED+=("confirm hosted verify_jwt=false: curl -i -X POST https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/delete-account must return PAWPIN:UNAUTHENTICATED")
+  SKIPPED+=("confirm hosted verify_jwt=false: curl -i -X POST https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/delete-account must return MEOOFY:UNAUTHENTICATED")
 fi
 
 # ── 8 ─────────────────────────────────────────────────────────────────────
@@ -535,7 +535,7 @@ say "iOS signs in with an Apple identity token and needs only the bundle id. The
 say "Services ID, a key, and a secret generated from that key."
 APPLE_SERVICE_ID_DEFAULT="${BUNDLE_ID}.web"
 open_url "https://developer.apple.com/account/resources/identifiers/add/serviceId"
-step "Services ID: Description PawPin Web, Identifier $APPLE_SERVICE_ID_DEFAULT (or your own). Register."
+step "Services ID: Description Meoofy Web, Identifier $APPLE_SERVICE_ID_DEFAULT (or your own). Register."
 step "Open it, tick 'Sign in with Apple', then Configure:"
 step "  Primary App ID: the one you made.  Domain: ${SUPABASE_PROJECT_REF}.supabase.co"
 step "  Return URL: https://${SUPABASE_PROJECT_REF}.supabase.co/auth/v1/callback   then Save."
@@ -543,7 +543,7 @@ ask_match APPLE_SERVICE_ID "Services ID you used:" '^[A-Za-z0-9-]+(\.[A-Za-z0-9-
 write_env APPLE_SERVICE_ID "$APPLE_SERVICE_ID"
 printf '\n'
 open_url "https://developer.apple.com/account/resources/authkeys/add"
-step "Key name: PawPin Sign in with Apple. Tick 'Sign in with Apple', Configure, choose the App ID."
+step "Key name: Meoofy Sign in with Apple. Tick 'Sign in with Apple', Configure, choose the App ID."
 step "Continue, Register, then Download the .p8 file. Apple lets you download it once: keep it safe."
 step "The Key ID (10 characters) is on the key's page and in the file name AuthKey_XXXXXXXXXX.p8."
 ask_match APPLE_KEY_ID "Key ID:" '^[A-Z0-9]{10}$' "10 capital letters and digits"
@@ -630,7 +630,7 @@ note "shown the default of 6 applies."
 printf '\n'
 open_url "$DASH/auth/templates"
 step "Authentication → Emails → Templates. Edit BOTH 'Confirm sign up' and 'Magic link'."
-step "Subject: Your PawPin sign-in code"
+step "Subject: Your Meoofy sign-in code"
 step "Body: the contents of supabase/templates/sign-in-code.html (it uses the 6-digit {{ .Token }})."
 if [[ -f supabase/templates/sign-in-code.html ]]; then
   offer_copy "$(cat supabase/templates/sign-in-code.html)"
@@ -667,8 +667,8 @@ stage "Sentry project"
 say "Errors are reported to Sentry with names, emails and file paths removed."
 open_url "https://sentry.io/signup/"
 step "Sign in (or sign up) and create or choose an organisation."
-step "Projects → Create Project: platform React Native, name pawpin. Create."
-step "Copy the DSN from the setup page, or Settings → Projects → pawpin → Client Keys (DSN)."
+step "Projects → Create Project: platform React Native, name meoofy. Create."
+step "Copy the DSN from the setup page, or Settings → Projects → meoofy → Client Keys (DSN)."
 while :; do
   ask EXPO_PUBLIC_SENTRY_DSN "DSN (or empty to skip Sentry for now):" || true
   dsn="${EXPO_PUBLIC_SENTRY_DSN:-}"
@@ -682,7 +682,7 @@ if [[ -n "${EXPO_PUBLIC_SENTRY_DSN:-}" ]]; then
   say "Without a token the builds still pass; they just skip the upload."
   step "Organisation slug: Settings → General Settings → Organization Slug."
   ask_match SENTRY_ORG "Organisation slug:" '^[a-z0-9][a-z0-9-]*$' "lowercase letters, digits and dashes"
-  step "Project slug: Settings → Projects → pawpin (the slug is in the address)."
+  step "Project slug: Settings → Projects → meoofy (the slug is in the address)."
   ask_match SENTRY_PROJECT "Project slug:" '^[a-z0-9][a-z0-9-]*$' "lowercase letters, digits and dashes"
   write_env SENTRY_ORG "$SENTRY_ORG"
   write_env SENTRY_PROJECT "$SENTRY_PROJECT"
@@ -788,11 +788,11 @@ else
   SKIPPED+=("deploy the web app (cd apps/app): export with eas env:exec production, check the export, then eas deploy --prod")
 fi
 printf '\n'
-step "The deploy prints the production URL (for example https://pawpin.expo.app)."
+step "The deploy prints the production URL (for example https://meoofy.expo.app)."
 while :; do
   ask WEB_ORIGIN "Web address of the deployed app (or empty if you have not deployed):" || true
   if [[ -z "${WEB_ORIGIN:-}" || "$WEB_ORIGIN" =~ ^https://[A-Za-z0-9.-]+$ ]]; then break; fi
-  warn "Give only the origin, like https://pawpin.expo.app (no path, no trailing slash)."
+  warn "Give only the origin, like https://meoofy.expo.app (no path, no trailing slash)."
 done
 write_env WEB_ORIGIN "${WEB_ORIGIN:-}"
 if [[ -n "${WEB_ORIGIN:-}" ]]; then

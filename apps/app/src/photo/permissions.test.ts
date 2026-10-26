@@ -8,11 +8,11 @@ function optionsOf(name: string): Record<string, unknown> {
   throw new Error(`${name} is not a config plugin`)
 }
 
-// App Store review rejects vague usage strings, so each says what PawPin does with the access.
+// App Store review rejects vague usage strings, so each says what Meoofy does with the access.
 describe('the camera and photo library permission strings', () => {
   it('say what the camera is used for', () => {
     expect(optionsOf('expo-camera').cameraPermission).toBe(
-      'PawPin uses the camera to take reference photos of your pet.',
+      'Meoofy uses the camera to take reference photos of your pet.',
     )
     expect(optionsOf('expo-image-picker').cameraPermission).toBe(
       optionsOf('expo-camera').cameraPermission,
@@ -21,11 +21,11 @@ describe('the camera and photo library permission strings', () => {
 
   it('say what the photo library is used for', () => {
     expect(optionsOf('expo-image-picker').photosPermission).toBe(
-      'PawPin uses your photo library so you can choose reference photos of your pet.',
+      'Meoofy uses your photo library so you can choose reference photos of your pet.',
     )
   })
 
-  it('leave out the microphone and barcode scanning, which PawPin never uses', () => {
+  it('leave out the microphone and barcode scanning, which Meoofy never uses', () => {
     expect(optionsOf('expo-camera')).toEqual(
       expect.objectContaining({
         microphonePermission: false,

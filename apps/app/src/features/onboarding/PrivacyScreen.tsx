@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
-import { Button, colors, radii, space, textStyle, type } from '@pawpin/ui'
+import { Button, colors, radii, space, textStyle, type } from '@meoofy/ui'
 
 import { onboardingCopy } from './copy'
 import { SafeOrbitHero } from './heroes'

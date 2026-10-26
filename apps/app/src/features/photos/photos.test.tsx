@@ -21,9 +21,9 @@ import {
   uploadPhoto,
   type Pet,
   type PetPhoto,
-} from '@pawpin/api'
-import { AppError, LIMITS, type PhotoView } from '@pawpin/core'
-import { cardRoles, flowTints } from '@pawpin/ui'
+} from '@meoofy/api'
+import { AppError, LIMITS, type PhotoView } from '@meoofy/core'
+import { cardRoles, flowTints } from '@meoofy/ui'
 
 import PhotosRoute from '../../../app/pets/[id]/photos'
 import { usePhotoUpload } from '../../data/usePhotoUpload'
@@ -35,8 +35,8 @@ import { TestProviders, testRootStackLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 import { RATE_LIMITED_RETRY_DELAY_MS, useRetryCooldown } from './useRetryCooldown'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   getPet: jest.fn(),
   listPhotos: jest.fn(),
   uploadPhoto: jest.fn(),
@@ -766,8 +766,8 @@ describe('upload problems', () => {
 
   /** The server refusing the upload slot (VALIDATION) with `details`, as packages/api passes it on. */
   const slotRefused = (details: string) =>
-    new AppError('VALIDATION', 'PAWPIN:VALIDATION', {
-      cause: { code: 'P0001', message: 'PAWPIN:VALIDATION', details, hint: null, status: 400 },
+    new AppError('VALIDATION', 'MEOOFY:VALIDATION', {
+      cause: { code: 'P0001', message: 'MEOOFY:VALIDATION', details, hint: null, status: 400 },
     })
 
   it('asks for the photo again when the server refuses its id, and gives the new attempt a new id', async () => {

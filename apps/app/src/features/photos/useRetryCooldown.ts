@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { PhotoView } from '@pawpin/core'
+import type { PhotoView } from '@meoofy/core'
 
 /**
  * How long a view's "Try again" stays off after the server says RATE_LIMITED (spec §9: "with a

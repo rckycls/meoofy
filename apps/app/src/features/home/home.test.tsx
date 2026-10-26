@@ -9,17 +9,17 @@ import {
   type Entitlement,
   type Pet,
   type Profile,
-} from '@pawpin/api'
-import { AppError } from '@pawpin/core'
-import { cardRoles, flowTints } from '@pawpin/ui'
+} from '@meoofy/api'
+import { AppError } from '@meoofy/core'
+import { cardRoles, flowTints } from '@meoofy/ui'
 
 import HomeTab from '../../../app/(tabs)/home'
 import { fakeClient } from '../../testing/fakeClient'
 import { testRootLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   listPets: jest.fn(),
   getEntitlement: jest.fn(),
   getProfile: jest.fn(),

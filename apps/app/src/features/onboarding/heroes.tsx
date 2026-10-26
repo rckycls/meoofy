@@ -22,7 +22,7 @@ import {
   resolveMotion,
   useMotionPreference,
   type StickerName,
-} from '@pawpin/ui'
+} from '@meoofy/ui'
 
 /** The hero is 268 pt tall at every width (board 08). */
 export const HERO_HEIGHT = 268
@@ -328,7 +328,7 @@ export function TwoPathsHero() {
       <Stickers
         items={[
           { name: 'dog', x: 90, y: 160, size: 112, rotate: -3 },
-          { name: 'paw-pin', x: 261, y: 144, size: 104 },
+          { name: 'meoofy', x: 261, y: 144, size: 104 },
           { name: 'heart-paw', x: 170, y: 53, size: 52, rotate: -6 },
         ]}
       />

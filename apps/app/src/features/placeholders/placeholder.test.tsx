@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react-native'
 import { Dimensions, StyleSheet, processColor } from 'react-native'
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context'
-import { flowTints } from '@pawpin/ui'
+import { flowTints } from '@meoofy/ui'
 
 import AlertsTab from '../../../app/(tabs)/alerts'
 import FindTab from '../../../app/(tabs)/find'
@@ -32,8 +32,8 @@ describe('Find placeholder', () => {
     expect(
       screen.getByRole('header', { name: 'Scanning arrives in the next pilot build' }),
     ).toBeOnTheScreen()
-    expect(screen.queryByTestId('sticker-paw-pin')).toBeNull()
-    expect(screen.getByTestId('sticker-paw-pin', hidden)).toBeOnTheScreen()
+    expect(screen.queryByTestId('sticker-meoofy')).toBeNull()
+    expect(screen.getByTestId('sticker-meoofy', hidden)).toBeOnTheScreen()
   })
 
   it('leaves the bottom safe area to the tab bar', async () => {

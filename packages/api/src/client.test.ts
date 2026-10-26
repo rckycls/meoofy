@@ -4,13 +4,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  createPawpinClient,
+  createMeoofyClient,
   signInWithAppleWeb,
-  type PawpinClient,
+  type MeoofyClient,
   type SessionStorage,
 } from './index'
 
-const authSettings = (c: PawpinClient) =>
+const authSettings = (c: MeoofyClient) =>
   c.auth as unknown as { detectSessionInUrl: unknown; flowType: unknown }
 
 const base = { url: 'http://stub.test', anonKey: 'stub-anon-key' }
@@ -26,15 +26,15 @@ function memoryStorage() {
   return { storage, items }
 }
 
-describe('createPawpinClient', () => {
+describe('createMeoofyClient', () => {
   it('ignores the URL by default (email code and Apple id token sign-in never redirect back)', () => {
-    const auth = authSettings(createPawpinClient(base))
+    const auth = authSettings(createMeoofyClient(base))
     expect(auth.detectSessionInUrl).toBe(false)
     expect(auth.flowType).toBe('implicit')
   })
 
   it('reads the session from the URL when asked to (the web Apple redirect), and only over PKCE', () => {
-    const auth = authSettings(createPawpinClient({ ...base, detectSessionInUrl: true }))
+    const auth = authSettings(createMeoofyClient({ ...base, detectSessionInUrl: true }))
     expect(auth.detectSessionInUrl).toBe(true)
     expect(auth.flowType).toBe('pkce')
   })
@@ -44,7 +44,7 @@ describe('a page opened from a link, with reading the URL on', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   const attackerLink =
-    'https://app.pawpin.test/#access_token=attacker-access&refresh_token=attacker-refresh&expires_in=3600&token_type=bearer'
+    'https://app.meoofy.test/#access_token=attacker-access&refresh_token=attacker-refresh&expires_in=3600&token_type=bearer'
 
   /** A browser at `href`, and a server that would accept any token it is shown. */
   function openPage(href: string) {
@@ -81,7 +81,7 @@ describe('a page opened from a link, with reading the URL on', () => {
   it('refuses a fragment that carries tokens: no request, no session, nothing stored', async () => {
     const requests = openPage(attackerLink)
     const { storage, items } = memoryStorage()
-    const client = createPawpinClient({ ...base, storage, detectSessionInUrl: true })
+    const client = createMeoofyClient({ ...base, storage, detectSessionInUrl: true })
 
     const { data } = await client.auth.getSession()
 
@@ -102,7 +102,7 @@ describe('a page opened from a link, with reading the URL on', () => {
     }
     items.set('sb-stub-auth-token', JSON.stringify(session))
     openPage(attackerLink)
-    const client = createPawpinClient({ ...base, storage, detectSessionInUrl: true })
+    const client = createMeoofyClient({ ...base, storage, detectSessionInUrl: true })
 
     const { data } = await client.auth.getSession()
 
@@ -110,9 +110,9 @@ describe('a page opened from a link, with reading the URL on', () => {
   })
 
   it('ignores a ?code= that this browser did not ask for (no verifier is stored)', async () => {
-    const requests = openPage('https://app.pawpin.test/?code=attacker-code')
+    const requests = openPage('https://app.meoofy.test/?code=attacker-code')
     const { storage } = memoryStorage()
-    const client = createPawpinClient({ ...base, storage, detectSessionInUrl: true })
+    const client = createMeoofyClient({ ...base, storage, detectSessionInUrl: true })
 
     const { data } = await client.auth.getSession()
 
@@ -124,7 +124,7 @@ describe('a page opened from a link, with reading the URL on', () => {
 describe('signInWithAppleWeb on a client that reads the URL', () => {
   it('keeps a code verifier for the return trip and sends only its challenge to Apple', async () => {
     const { storage, items } = memoryStorage()
-    const client = createPawpinClient({ ...base, storage, detectSessionInUrl: true })
+    const client = createMeoofyClient({ ...base, storage, detectSessionInUrl: true })
     const oauth = vi.spyOn(client.auth, 'signInWithOAuth')
 
     await signInWithAppleWeb(client)

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { PetInput } from '@pawpin/core'
+import type { PetInput } from '@meoofy/core'
 import { afterAll, describe, expect, it } from 'vitest'
 import { createPet, deletePet, getEntitlement, getPet, listPets, updatePet, type Pet } from '../src'
 import { cleanup, newOwner } from './helpers'

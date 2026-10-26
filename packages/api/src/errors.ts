@@ -1,4 +1,4 @@
-import { AppError, parseAppError } from '@pawpin/core'
+import { AppError, parseAppError } from '@meoofy/core'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -37,12 +37,12 @@ const UNAVAILABLE: ReadonlySet<number> = new Set([503, 520])
  * - Permission denied (`42501`, what anon gets from an `api` view or function) and any 401
  *   become UNAUTHENTICATED; so does an expired or wrong email code (`otp_expired`).
  * - A 429 (Auth's email, OTP and sign-in rate limits) becomes RATE_LIMITED.
- * A `PAWPIN:<CODE>` server error, an AppError and anything unrecognised pass through unchanged.
+ * A `MEOOFY:<CODE>` server error, an AppError and anything unrecognised pass through unchanged.
  */
 export function normalizeSupabaseError(e: unknown): unknown {
   if (e instanceof AppError || !isRecord(e)) return e
   const message = messageOf(e)
-  if (message?.includes('PAWPIN:')) return e
+  if (message?.includes('MEOOFY:')) return e
 
   if (
     e.name === 'AuthRetryableFetchError' ||

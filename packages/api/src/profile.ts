@@ -3,8 +3,8 @@ import {
   displayNameSchema,
   onboardingPathSchema,
   type OnboardingPath,
-} from '@pawpin/core'
-import type { PawpinClient } from './client'
+} from '@meoofy/core'
+import type { MeoofyClient } from './client'
 import { toAppError, withStatus } from './errors'
 import { toProfile, type Profile } from './types'
 
@@ -12,7 +12,7 @@ import { toProfile, type Profile } from './types'
  * The signed-in user's profile. A session with no profile behind it (the user was deleted)
  * rejects with UNAUTHENTICATED, like an expired one.
  */
-export async function getProfile(c: PawpinClient): Promise<Profile> {
+export async function getProfile(c: MeoofyClient): Promise<Profile> {
   try {
     const { data, error, status } = await c
       .from('my_profile')
@@ -29,7 +29,7 @@ export async function getProfile(c: PawpinClient): Promise<Profile> {
 /**
  * Records the onboarding path chosen before sign-in. Idempotent: only the first call counts.
  */
-export async function completeOnboarding(c: PawpinClient, path: OnboardingPath): Promise<void> {
+export async function completeOnboarding(c: MeoofyClient, path: OnboardingPath): Promise<void> {
   try {
     const parsed = onboardingPathSchema.safeParse(path)
     if (!parsed.success) throw new AppError('VALIDATION', 'unknown onboarding path')
@@ -44,7 +44,7 @@ export async function completeOnboarding(c: PawpinClient, path: OnboardingPath):
  * Sets the display name, trimmed. An empty or over-long name rejects with VALIDATION before any
  * request is made.
  */
-export async function updateDisplayName(c: PawpinClient, name: string): Promise<void> {
+export async function updateDisplayName(c: MeoofyClient, name: string): Promise<void> {
   try {
     const parsed = displayNameSchema.safeParse(name)
     if (!parsed.success) {

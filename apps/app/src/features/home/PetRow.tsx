@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { formatAge } from '@pawpin/core'
-import type { Pet } from '@pawpin/api'
-import { Card, Chip, PetPortrait, colors, space, textStyle, type } from '@pawpin/ui'
+import { formatAge } from '@meoofy/core'
+import type { Pet } from '@meoofy/api'
+import { Card, Chip, PetPortrait, colors, space, textStyle, type } from '@meoofy/ui'
 
 import { homeCopy } from './copy'
 

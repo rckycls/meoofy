@@ -52,7 +52,7 @@ export const corsHeaders = {
 
 /**
  * The delete-account Edge Function. POST with the caller's JWT deletes the caller's own account
- * and answers 204; without a JWT that verifies it answers 401 `{"error":"PAWPIN:UNAUTHENTICATED"}`.
+ * and answers 204; without a JWT that verifies it answers 401 `{"error":"MEOOFY:UNAUTHENTICATED"}`.
  */
 export function deleteAccountHandler(deps: DeleteAccountHandlerDeps) {
   return async (req: Request): Promise<Response> => {

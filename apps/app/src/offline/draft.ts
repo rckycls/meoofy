@@ -1,4 +1,4 @@
-import { speciesSchema, type Species } from '@pawpin/core'
+import { speciesSchema, type Species } from '@meoofy/core'
 
 import { local } from '../storage/local'
 
@@ -11,7 +11,7 @@ export type PetDraft = Partial<{
   months: string
 }>
 
-const KEY = 'pawpin.petDraft'
+const KEY = 'meoofy.petDraft'
 const TEXT_FIELDS = ['name', 'breed', 'years', 'months'] as const
 const FIELDS: readonly string[] = [...TEXT_FIELDS, 'species']
 

@@ -1,7 +1,7 @@
-import { AppError } from '@pawpin/core'
+import { AppError } from '@meoofy/core'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
-  createPawpinClient,
+  createMeoofyClient,
   deleteAccount,
   getProfile,
   sendEmailCode,
@@ -48,7 +48,7 @@ describe('email code sign-in', () => {
 
   it('signs in the same way from the web client, which reads the URL and so uses PKCE', async () => {
     const email = await allowlist(uniqueEmail('web'))
-    const client = createPawpinClient({
+    const client = createMeoofyClient({
       url: SUPABASE_URL,
       anonKey: ANON_KEY,
       detectSessionInUrl: true,
@@ -63,7 +63,7 @@ describe('email code sign-in', () => {
   })
 
   it('refuses a stranger as INVITE_ONLY', async () => {
-    const stranger = track('stranger@pawpin.test')
+    const stranger = track('stranger@meoofy.test')
     const client = anonClient()
 
     const attempt = async () => {

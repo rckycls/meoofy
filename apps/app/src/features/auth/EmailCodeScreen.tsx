@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
 import { StyleSheet, Text } from 'react-native'
 import { Redirect } from 'expo-router'
-import { sendEmailCode, verifyEmailCode } from '@pawpin/api'
-import { parseAppError, type AppError } from '@pawpin/core'
-import { Button, colors, space, textStyle, type } from '@pawpin/ui'
+import { sendEmailCode, verifyEmailCode } from '@meoofy/api'
+import { parseAppError, type AppError } from '@meoofy/core'
+import { Button, colors, space, textStyle, type } from '@meoofy/ui'
 
 import { reportHandledError } from '../../observability/sentry'
 import { useSession } from '../../state/SessionProvider'

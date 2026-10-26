@@ -1,5 +1,5 @@
 {
-  "name": "pawpin",
+  "name": "meoofy",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.21.0",
@@ -22,12 +22,12 @@
     "test:db": "supabase test db",
     "typecheck:functions": "DENO_NO_PACKAGE_JSON=1 deno check supabase/functions/delete-account/index.ts supabase/functions/storage-cleanup/index.ts",
     "test:functions": "DENO_NO_PACKAGE_JSON=1 deno test supabase/functions/_shared",
-    "test:api": "pnpm --filter @pawpin/api test:int",
-    "test:e2e:web": "pnpm --filter @pawpin/app test:e2e:web",
-    "test:e2e:ios": "pnpm --filter @pawpin/app test:e2e:ios",
-    "deploy:web": "pnpm --filter @pawpin/app deploy:web",
-    "build:ios": "pnpm --filter @pawpin/app build:ios",
-    "submit:ios": "pnpm --filter @pawpin/app submit:ios"
+    "test:api": "pnpm --filter @meoofy/api test:int",
+    "test:e2e:web": "pnpm --filter @meoofy/app test:e2e:web",
+    "test:e2e:ios": "pnpm --filter @meoofy/app test:e2e:ios",
+    "deploy:web": "pnpm --filter @meoofy/app deploy:web",
+    "build:ios": "pnpm --filter @meoofy/app build:ios",
+    "submit:ios": "pnpm --filter @meoofy/app submit:ios"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

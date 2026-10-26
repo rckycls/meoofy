@@ -5,7 +5,7 @@ import {
   type ImageRef,
 } from 'expo-image-manipulator'
 import { decode as decodeJpeg } from 'jpeg-js'
-import { analyzeGray, assessPhoto, LIMITS, type PhotoRejection } from '@pawpin/core'
+import { analyzeGray, assessPhoto, LIMITS, type PhotoRejection } from '@meoofy/core'
 
 /** What the device measured on a photo it is ready to upload. */
 export type PreparedPhoto = {

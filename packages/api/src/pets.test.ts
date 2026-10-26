@@ -1,5 +1,5 @@
 // Pets without a network: what each function sends, how rows map, and validation before requests.
-import type { PetInput, PetPatch } from '@pawpin/core'
+import type { PetInput, PetPatch } from '@meoofy/core'
 import { describe, expect, it, vi } from 'vitest'
 import { createPet, deletePet, getPet, listPets, updatePet } from './index'
 import { offline, respond, stubClient } from './testSupport'
@@ -70,7 +70,7 @@ describe('createPet', () => {
   })
 
   it('surfaces the server limit as PET_LIMIT_REACHED', async () => {
-    const fetch = respond(400, { code: 'P0001', message: 'PAWPIN:PET_LIMIT_REACHED' })
+    const fetch = respond(400, { code: 'P0001', message: 'MEOOFY:PET_LIMIT_REACHED' })
     const input = { id: ID, name: 'Rex', species: 'dog', breed: null, ageMonths: null } as const
     await expect(createPet(stubClient(fetch), input)).rejects.toMatchObject({
       name: 'AppError',
@@ -128,7 +128,7 @@ describe('deletePet', () => {
   })
 
   it('resolves when the server answers NOT_OWNER (Ruling 18: already gone)', async () => {
-    const fetch = respond(400, { code: 'P0001', message: 'PAWPIN:NOT_OWNER' })
+    const fetch = respond(400, { code: 'P0001', message: 'MEOOFY:NOT_OWNER' })
     await expect(deletePet(stubClient(fetch), ID)).resolves.toBeUndefined()
   })
 

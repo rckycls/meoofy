@@ -12,7 +12,7 @@ import {
   space,
   textStyle,
   type,
-} from '@pawpin/ui'
+} from '@meoofy/ui'
 
 import { ContentColumn } from '../../layout/ContentColumn'
 import type { GuidedView } from '../../photo/views'
@@ -44,7 +44,7 @@ export type CameraSheetProps = {
  * The camera, in a sheet over the screen, with a frame to line the pet up in. The sheet is open
  * for as long as it is mounted.
  *
- * It asks for the camera when it opens, if the system lets it. When the camera is off for PawPin
+ * It asks for the camera when it opens, if the system lets it. When the camera is off for Meoofy
  * (S02), or the device has none to start, it says so and offers the photo library instead.
  */
 export function CameraSheet({ view, onPhoto, onClose }: CameraSheetProps) {

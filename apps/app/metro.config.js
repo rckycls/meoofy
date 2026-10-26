@@ -1,5 +1,5 @@
 // Metro in the pnpm monorepo (Expo's monorepo guide): watch the whole
-// workspace so edits to the source-only packages (@pawpin/ui, api, core,
+// workspace so edits to the source-only packages (@meoofy/ui, api, core,
 // all `main: ./src/index.ts`) rebuild, and resolve modules from the app's
 // node_modules first, then the hoisted root node_modules.
 const path = require('node:path')

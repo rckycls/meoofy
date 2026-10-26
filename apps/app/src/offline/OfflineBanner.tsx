@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { cardRoles, radii, space, textStyle, type } from '@pawpin/ui'
+import { cardRoles, radii, space, textStyle, type } from '@meoofy/ui'
 
 import { offlineCopy } from './copy'
 import { useOnline } from './useOnline'

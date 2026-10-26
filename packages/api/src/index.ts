@@ -1,9 +1,9 @@
-// @pawpin/api: the only place the app talks to Supabase. Every exported function rejects with
+// @meoofy/api: the only place the app talks to Supabase. Every exported function rejects with
 // the core AppError only; raw Supabase errors never escape.
 export {
-  createPawpinClient,
-  type PawpinClient,
-  type PawpinClientOptions,
+  createMeoofyClient,
+  type MeoofyClient,
+  type MeoofyClientOptions,
   type SessionStorage,
 } from './client'
 export { normalizeSupabaseError } from './errors'

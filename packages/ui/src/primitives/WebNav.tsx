@@ -8,7 +8,7 @@ import { navItems, type NavProps } from './navItems'
 export function WebNav({ active, onSelect }: NavProps) {
   return (
     <View testID="web-nav" role="navigation" aria-label="Main" style={styles.bar}>
-      <Text style={styles.brand}>PawPin</Text>
+      <Text style={styles.brand}>Meoofy</Text>
       <View style={styles.links}>
         {navItems.map(({ key, label }) => {
           const selected = key === active

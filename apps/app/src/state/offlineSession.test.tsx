@@ -16,8 +16,8 @@ import {
   type Entitlement,
   type Pet,
   type Profile,
-} from '@pawpin/api'
-import { AppError } from '@pawpin/core'
+} from '@meoofy/api'
+import { AppError } from '@meoofy/core'
 
 import AccountTab from '../../app/(tabs)/account'
 import EntryIndex from '../../app/index'
@@ -29,8 +29,8 @@ import { changeConnection, startWithConnection } from '../testing/netInfo'
 import { seedPersistedCache } from '../testing/persistedCache'
 import { testRootStackLayout } from '../testing/TestRoot'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   readStoredSession: jest.fn(),
   listPets: jest.fn(),
   getEntitlement: jest.fn(),
@@ -103,7 +103,7 @@ const cachedPets = () => queryClient?.getQueryData<Pet[]>(['pets'])
 
 beforeEach(async () => {
   await AsyncStorage.clear()
-  await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+  await AsyncStorage.setItem('meoofy.onboardingSeen', 'true')
   // What the last session saved, and the session it left stored.
   await seedPersistedCache([
     [['pets'], [milo]],
@@ -264,7 +264,7 @@ describe('the saved cache', () => {
     expect(cachedPets()).toBeUndefined()
     // Gone from the device too: whatever is saved now is this person's (nothing yet).
     await settle()
-    expect((await AsyncStorage.getItem('pawpin.queryCache')) ?? '').not.toContain('Milo')
+    expect((await AsyncStorage.getItem('meoofy.queryCache')) ?? '').not.toContain('Milo')
   })
 })
 

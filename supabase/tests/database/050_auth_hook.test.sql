@@ -1,6 +1,6 @@
 -- Pilot allowlist: the before-user-created auth hook and the rejection log.
 -- Uses tests.create_user / tests.authenticate_as / tests.clear_auth from 000_helpers.sql.
--- Seeded allowlist (supabase/seed.sql): owner@pawpin.test and e2e@pawpin.test.
+-- Seeded allowlist (supabase/seed.sql): owner@meoofy.test and e2e@meoofy.test.
 begin;
 select plan(39);
 
@@ -67,29 +67,29 @@ select table_privs_are('identity', 'signup_rejections', 'supabase_auth_admin', a
 -- ---------------------------------------------------------------------------
 select is(
   (select array_agg(email::text order by email) from identity.pilot_allowlist
-    where email in ('owner@pawpin.test', 'e2e@pawpin.test')),
-  array['e2e@pawpin.test', 'owner@pawpin.test'],
+    where email in ('owner@meoofy.test', 'e2e@meoofy.test')),
+  array['e2e@meoofy.test', 'owner@meoofy.test'],
   'the seed allowlists the owner and e2e test accounts');
 
 -- ---------------------------------------------------------------------------
 -- Allowed: the hook returns an empty object and logs nothing
 -- ---------------------------------------------------------------------------
 select is(
-  identity.before_user_created('{"user":{"email":"Owner@Pawpin.test"}}'),
+  identity.before_user_created('{"user":{"email":"Owner@Meoofy.test"}}'),
   '{}'::jsonb,
   'an allowlisted email is allowed, whatever its case');
 select is(
-  identity.before_user_created('{"user":{"email":"e2e@pawpin.test"}}'),
+  identity.before_user_created('{"user":{"email":"e2e@meoofy.test"}}'),
   '{}'::jsonb,
   'the e2e account is allowed');
 
-insert into identity.pilot_allowlist (email) values ('Mixed.Case@Pawpin.test');
+insert into identity.pilot_allowlist (email) values ('Mixed.Case@Meoofy.test');
 select is(
-  identity.before_user_created('{"user":{"email":"mixed.case@pawpin.test"}}'),
+  identity.before_user_created('{"user":{"email":"mixed.case@meoofy.test"}}'),
   '{}'::jsonb,
   'a mixed-case allowlist entry matches a lower-case sign-up email');
 select is(
-  identity.before_user_created('{"user":{"email":"MIXED.CASE@PAWPIN.TEST"}}'),
+  identity.before_user_created('{"user":{"email":"MIXED.CASE@MEOOFY.TEST"}}'),
   '{}'::jsonb,
   'a mixed-case allowlist entry matches an upper-case sign-up email');
 select is((select count(*)::int from identity.signup_rejections), 0,
@@ -120,7 +120,7 @@ select is(
     where email = 'abc@privaterelay.appleid.com'),
   2, 'every refused attempt is logged, matched case-insensitively');
 select is(
-  (select count(*)::int from identity.signup_rejections where email = 'owner@pawpin.test'),
+  (select count(*)::int from identity.signup_rejections where email = 'owner@meoofy.test'),
   0, 'allowlisted addresses never appear in the rejection log');
 
 -- A sign-up without an email (phone, anonymous, malformed event) cannot be allowlisted:
@@ -149,7 +149,7 @@ select is((select count(*)::int from identity.signup_rejections), 2,
 -- ---------------------------------------------------------------------------
 -- Clients: no reads, no hook
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(tests.create_user('hook-client@pawpin.test'));
+select tests.authenticate_as(tests.create_user('hook-client@meoofy.test'));
 select throws_ok($$ select * from identity.pilot_allowlist $$, '42501', null,
   'authenticated cannot read the pilot allowlist');
 select throws_ok($$ select * from identity.signup_rejections $$, '42501', null,
@@ -158,7 +158,7 @@ select throws_ok(
   $$ insert into identity.signup_rejections (email) values ('forged@example.com') $$,
   '42501', null, 'authenticated cannot write to the rejection log');
 select throws_ok(
-  $$ select identity.before_user_created('{"user":{"email":"owner@pawpin.test"}}') $$,
+  $$ select identity.before_user_created('{"user":{"email":"owner@meoofy.test"}}') $$,
   '42501', null, 'authenticated cannot call the hook');
 
 select * from finish();

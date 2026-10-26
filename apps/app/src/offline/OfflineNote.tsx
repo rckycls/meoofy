@@ -1,5 +1,5 @@
 import { StyleSheet, Text } from 'react-native'
-import { colors, textStyle, type } from '@pawpin/ui'
+import { colors, textStyle, type } from '@meoofy/ui'
 
 /**
  * Why the controls next to it are off while the device is offline. Plain status text, shown

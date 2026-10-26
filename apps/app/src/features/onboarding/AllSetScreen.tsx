@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
-import { Button, Sticker, colors, radii, space, textStyle, type } from '@pawpin/ui'
+import { Button, Sticker, colors, radii, space, textStyle, type } from '@meoofy/ui'
 
 import { useProfile } from '../../data/useProfile'
 import { allSetTitle, onboardingCopy } from './copy'

@@ -19,9 +19,9 @@ import {
   updateDisplayName,
   verifyEmailCode,
   type Profile,
-} from '@pawpin/api'
-import { AppError } from '@pawpin/core'
-import { cardRoles, flowTints } from '@pawpin/ui'
+} from '@meoofy/api'
+import { AppError } from '@meoofy/core'
+import { cardRoles, flowTints } from '@meoofy/ui'
 
 import EmailCode from '../../../app/(auth)/email-code'
 import AuthLayout from '../../../app/(auth)/_layout'
@@ -36,8 +36,8 @@ import { testRootLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 import { authCopy } from './copy'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   sendEmailCode: jest.fn(),
   verifyEmailCode: jest.fn(),
   signInWithAppleIdToken: jest.fn(),
@@ -156,7 +156,7 @@ const press = (name: string | RegExp) => fireEvent.press(screen.getByRole('butto
 
 beforeEach(async () => {
   await AsyncStorage.clear()
-  await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+  await AsyncStorage.setItem('meoofy.onboardingSeen', 'true')
   serverProfile = alex
 
   mockSendEmailCode.mockReset().mockResolvedValue(undefined)
@@ -356,7 +356,7 @@ describe('Sign in with Apple (iOS)', () => {
   })
 
   it('opens Find for a returning person who came in on the finder path', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingPath', 'finder')
+    await AsyncStorage.setItem('meoofy.onboardingPath', 'finder')
     await openSignIn()
 
     await pressApple()
@@ -712,7 +712,7 @@ describe('email code', () => {
   })
 
   it('opens Find for a returning person who came in on the finder path', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingPath', 'finder')
+    await AsyncStorage.setItem('meoofy.onboardingPath', 'finder')
     await openCodeScreen()
 
     await enterCode('123456')
@@ -868,7 +868,7 @@ describe('email code', () => {
 })
 
 describe('invite-only contact link', () => {
-  const SUPPORT = 'help@pawpin.example'
+  const SUPPORT = 'help@meoofy.example'
 
   /** From sign-in to the invite-only refusal, as a stranger meets it. */
   async function refuseStranger() {

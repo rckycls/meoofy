@@ -13,9 +13,9 @@ export function json(status: number, body: unknown, headers: HeadersInit = {}): 
   return res
 }
 
-/** The error body the app parses: `{"error":"PAWPIN:<CODE>"}` (see packages/core errors.ts). */
+/** The error body the app parses: `{"error":"MEOOFY:<CODE>"}` (see packages/core errors.ts). */
 export function appError(status: number, code: string, headers: HeadersInit = {}): Response {
-  return json(status, { error: `PAWPIN:${code}` }, headers)
+  return json(status, { error: `MEOOFY:${code}` }, headers)
 }
 
 /**

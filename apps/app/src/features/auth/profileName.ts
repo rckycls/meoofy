@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { getProfile, updateDisplayName, type PawpinClient } from '@pawpin/api'
-import { displayNameSchema } from '@pawpin/core'
+import { getProfile, updateDisplayName, type MeoofyClient } from '@meoofy/api'
+import { displayNameSchema } from '@meoofy/core'
 
 /**
  * Saves the display name, then puts the saved profile in the query cache so the next screen (the
@@ -8,7 +8,7 @@ import { displayNameSchema } from '@pawpin/core'
  * empty one it was cached with. If the profile can't be read back the screens read it themselves.
  */
 export async function saveDisplayName(
-  client: PawpinClient,
+  client: MeoofyClient,
   queryClient: QueryClient,
   name: string,
 ): Promise<void> {
@@ -30,7 +30,7 @@ export async function saveDisplayName(
  * rejects: if the name can't be saved, the entry gate asks for it on the name step instead.
  */
 export async function nameFromApple(
-  client: PawpinClient,
+  client: MeoofyClient,
   queryClient: QueryClient,
   givenName: string | null | undefined,
 ): Promise<boolean> {

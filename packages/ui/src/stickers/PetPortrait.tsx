@@ -7,7 +7,7 @@ import { textStyle } from '../theme/textStyle'
 import { type } from '../theme/type'
 import { Sticker } from './Sticker'
 
-/** Defined here, not imported from `@pawpin/core`: the UI package stays free of domain code. */
+/** Defined here, not imported from `@meoofy/core`: the UI package stays free of domain code. */
 export type PetSpecies = 'dog' | 'cat'
 
 export type PetPortraitProps = {

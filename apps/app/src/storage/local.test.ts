@@ -26,12 +26,12 @@ describe('device storage', () => {
   it('is AsyncStorage on iOS', async () => {
     expect(storageFor('ios')).toBe(AsyncStorage)
 
-    await local.set('pawpin.onboardingSeen', 'true')
+    await local.set('meoofy.onboardingSeen', 'true')
 
-    expect(await AsyncStorage.getItem('pawpin.onboardingSeen')).toBe('true')
-    expect(await local.get('pawpin.onboardingSeen')).toBe('true')
-    await local.remove('pawpin.onboardingSeen')
-    expect(await local.get('pawpin.onboardingSeen')).toBeNull()
+    expect(await AsyncStorage.getItem('meoofy.onboardingSeen')).toBe('true')
+    expect(await local.get('meoofy.onboardingSeen')).toBe('true')
+    await local.remove('meoofy.onboardingSeen')
+    expect(await local.get('meoofy.onboardingSeen')).toBeNull()
   })
 
   it('is localStorage on the web', async () => {
@@ -59,9 +59,9 @@ describe('device storage', () => {
     const os = jest.replaceProperty(Platform, 'OS', 'web')
     try {
       await withWindow(undefined, async () => {
-        await expect(local.set('pawpin.petDraft', '{}')).resolves.toBeUndefined()
-        await expect(local.get('pawpin.petDraft')).resolves.toBeNull()
-        await expect(local.remove('pawpin.petDraft')).resolves.toBeUndefined()
+        await expect(local.set('meoofy.petDraft', '{}')).resolves.toBeUndefined()
+        await expect(local.get('meoofy.petDraft')).resolves.toBeNull()
+        await expect(local.remove('meoofy.petDraft')).resolves.toBeUndefined()
       })
     } finally {
       os.restore()

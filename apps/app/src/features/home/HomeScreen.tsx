@@ -1,7 +1,7 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
-import type { Entitlement } from '@pawpin/api'
-import { canAddPet, parseAppError } from '@pawpin/core'
+import type { Entitlement } from '@meoofy/api'
+import { canAddPet, parseAppError } from '@meoofy/core'
 import {
   Button,
   Card,
@@ -12,7 +12,7 @@ import {
   space,
   textStyle,
   type,
-} from '@pawpin/ui'
+} from '@meoofy/ui'
 
 import { useEntitlement } from '../../data/useEntitlement'
 import { usePets } from '../../data/usePets'

@@ -14,10 +14,10 @@ async function deliver(to: string, code: string) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      From: { Email: 'noreply@pawpin.test' },
+      From: { Email: 'noreply@meoofy.test' },
       To: [{ Email: to }],
-      Subject: 'Your PawPin sign-in code',
-      Text: `Enter this code in PawPin to sign in:\n\n${code}\n`,
+      Subject: 'Your Meoofy sign-in code',
+      Text: `Enter this code in Meoofy to sign in:\n\n${code}\n`,
     }),
   })
   expect(response.ok).toBe(true)
@@ -27,7 +27,7 @@ let address = ''
 
 test.beforeEach(async () => {
   test.skip(test.info().project.name !== 'mobile-390', 'No browser here: once is enough.')
-  address = `helper-check+${randomUUID().slice(0, 8)}@pawpin.test`
+  address = `helper-check+${randomUUID().slice(0, 8)}@meoofy.test`
   await clearInbox(address)
 })
 

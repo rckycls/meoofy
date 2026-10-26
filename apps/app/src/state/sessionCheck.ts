@@ -1,9 +1,9 @@
-import { checkSession, signOut, type PawpinClient, type SessionCheck } from '@pawpin/api'
+import { checkSession, signOut, type MeoofyClient, type SessionCheck } from '@meoofy/api'
 
-const inFlight = new WeakMap<PawpinClient, Promise<SessionCheck>>()
+const inFlight = new WeakMap<MeoofyClient, Promise<SessionCheck>>()
 const byFailure = new WeakMap<object, Promise<SessionCheck>>()
 
-function startCheck(client: PawpinClient): Promise<SessionCheck> {
+function startCheck(client: MeoofyClient): Promise<SessionCheck> {
   const check = (async () => {
     const outcome = await checkSession(client)
     // signOut forgets the session even when its request fails.
@@ -23,7 +23,7 @@ function startCheck(client: PawpinClient): Promise<SessionCheck> {
  * One failure gets one check, whoever asks (the query layer and the entry gate both do), and
  * failures that arrive together share the request.
  */
-export function confirmSession(client: PawpinClient, failure: unknown): Promise<SessionCheck> {
+export function confirmSession(client: MeoofyClient, failure: unknown): Promise<SessionCheck> {
   const key = typeof failure === 'object' && failure !== null ? failure : null
   const known = key === null ? undefined : byFailure.get(key)
   if (known !== undefined) return known

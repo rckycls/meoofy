@@ -4,14 +4,14 @@ import {
   getEntitlement,
   getProfile,
   updateDisplayName,
-  type PawpinClient,
+  type MeoofyClient,
 } from '../src'
 import { admin, cleanup, clientWithAccessToken, newOwner, signAccessToken } from './helpers'
 
 afterAll(cleanup)
 
 describe('profile and entitlement of a new owner', () => {
-  let client: PawpinClient
+  let client: MeoofyClient
   let userId: string
 
   beforeAll(async () => {

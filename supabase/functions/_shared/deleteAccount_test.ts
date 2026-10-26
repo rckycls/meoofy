@@ -120,7 +120,7 @@ Deno.test('deleteAccount refuses to remove a listed path outside the user folder
 const request = (init: RequestInit = {}) =>
   new Request('http://localhost/functions/v1/delete-account', { method: 'POST', ...init })
 
-const unauthenticated = { error: 'PAWPIN:UNAUTHENTICATED' }
+const unauthenticated = { error: 'MEOOFY:UNAUTHENTICATED' }
 
 Deno.test(
   'delete-account without an Authorization header answers 401 UNAUTHENTICATED',
@@ -193,7 +193,7 @@ Deno.test('delete-account answers 500 and keeps the user when file removal fails
       request({ headers: { Authorization: 'Bearer good-token' } }),
     )
     assert.equal(res.status, 500)
-    assert.deepEqual(await res.json(), { error: 'PAWPIN:UNKNOWN' })
+    assert.deepEqual(await res.json(), { error: 'MEOOFY:UNKNOWN' })
   } finally {
     console.error = quiet
   }
@@ -211,7 +211,7 @@ Deno.test('delete-account answers 500 when the JWT check itself fails (not a 401
       request({ headers: { Authorization: 'Bearer good-token' } }),
     )
     assert.equal(res.status, 500)
-    assert.deepEqual(await res.json(), { error: 'PAWPIN:UNKNOWN' })
+    assert.deepEqual(await res.json(), { error: 'MEOOFY:UNKNOWN' })
   } finally {
     console.error = quiet
   }
@@ -226,7 +226,7 @@ Deno.test('delete-account accepts only POST', async () => {
     )
     assert.equal(res.status, 405, method)
     assert.equal(res.headers.get('allow'), 'POST, OPTIONS')
-    assert.deepEqual(await res.json(), { error: 'PAWPIN:VALIDATION' })
+    assert.deepEqual(await res.json(), { error: 'MEOOFY:VALIDATION' })
     assert.deepEqual(calls, [], method)
   }
 })

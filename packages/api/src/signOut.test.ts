@@ -5,13 +5,13 @@
 // Auth can be reached. These run the real supabase-js over a stub fetch.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  createPawpinClient,
+  createMeoofyClient,
   deleteAccount,
   forgetSession,
   onSessionForgotten,
   readStoredSession,
   signOut,
-  type PawpinClient,
+  type MeoofyClient,
 } from './index'
 import { offline, refreshed, type Fetch } from './testSupport'
 
@@ -34,7 +34,7 @@ function storedSession(expiresIn: number): string {
 function signedIn(session: string, fetch: Fetch) {
   vi.stubGlobal('fetch', fetch)
   const map = new Map([[KEY, session]])
-  const client = createPawpinClient({
+  const client = createMeoofyClient({
     url: URL,
     anonKey: 'stub-anon-key',
     storage: {
@@ -53,7 +53,7 @@ async function letSupabaseRetry() {
   await vi.advanceTimersByTimeAsync(31_000)
 }
 
-async function signOutSettled(client: PawpinClient) {
+async function signOutSettled(client: MeoofyClient) {
   const outcome = signOut(client).then(
     () => 'resolved',
     (error: unknown) => error,

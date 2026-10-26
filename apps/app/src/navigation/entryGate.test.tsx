@@ -2,15 +2,15 @@ import { Text } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { onlineManager } from '@tanstack/react-query'
 import { act, renderRouter, screen } from 'expo-router/testing-library'
-import { checkSession, getProfile, type Profile } from '@pawpin/api'
-import { AppError } from '@pawpin/core'
+import { checkSession, getProfile, type Profile } from '@meoofy/api'
+import { AppError } from '@meoofy/core'
 
 import EntryIndex from '../../app/index'
 import { fakeClient } from '../testing/fakeClient'
 import { testRootLayout } from '../testing/TestRoot'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   getProfile: jest.fn(),
   checkSession: jest.fn(),
 }))
@@ -57,7 +57,7 @@ describe('entry gate', () => {
   })
 
   it('opens sign-in once onboarding was seen', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+    await AsyncStorage.setItem('meoofy.onboardingSeen', 'true')
     const router = await renderRouter(routes(fakeClient().client))
 
     expect(await screen.findByText('Sign-in screen')).toBeOnTheScreen()
@@ -66,8 +66,8 @@ describe('entry gate', () => {
 
   it('opens Find for a signed-in, named user on the finder path', async () => {
     await AsyncStorage.multiSet([
-      ['pawpin.onboardingSeen', 'true'],
-      ['pawpin.onboardingPath', 'finder'],
+      ['meoofy.onboardingSeen', 'true'],
+      ['meoofy.onboardingPath', 'finder'],
     ])
     mockGetProfile.mockResolvedValue(alex)
     const router = await renderRouter(routes(fakeClient({ userId: 'u1' }).client))
@@ -77,7 +77,7 @@ describe('entry gate', () => {
   })
 
   it('signs out and opens sign-in when Auth confirms the session is gone', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+    await AsyncStorage.setItem('meoofy.onboardingSeen', 'true')
     mockGetProfile.mockRejectedValue(new AppError('UNAUTHENTICATED'))
     mockCheckSession.mockResolvedValue('rejected')
     const fake = fakeClient({ userId: 'u1' })
@@ -91,7 +91,7 @@ describe('entry gate', () => {
   })
 
   it('keeps the session and opens Home when Auth cannot be reached', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+    await AsyncStorage.setItem('meoofy.onboardingSeen', 'true')
     mockGetProfile.mockRejectedValue(new AppError('UNAUTHENTICATED'))
     mockCheckSession.mockResolvedValue('unknown')
     const fake = fakeClient({ userId: 'u1' })
@@ -103,7 +103,7 @@ describe('entry gate', () => {
   })
 
   it('asks for the profile again once the session has refreshed', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+    await AsyncStorage.setItem('meoofy.onboardingSeen', 'true')
     mockGetProfile
       .mockRejectedValueOnce(new AppError('UNAUTHENTICATED'))
       .mockResolvedValue({ ...alex, displayName: '' })
@@ -118,7 +118,7 @@ describe('entry gate', () => {
   })
 
   it('opens Home when the profile cannot be loaded for another reason', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+    await AsyncStorage.setItem('meoofy.onboardingSeen', 'true')
     mockGetProfile.mockRejectedValue(new AppError('UNKNOWN'))
     const router = await renderRouter(routes(fakeClient({ userId: 'u1' }).client))
 
@@ -127,7 +127,7 @@ describe('entry gate', () => {
   })
 
   it('opens Home when offline with no cached profile', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingSeen', 'true')
+    await AsyncStorage.setItem('meoofy.onboardingSeen', 'true')
     onlineManager.setOnline(false)
     try {
       const router = await renderRouter(routes(fakeClient({ userId: 'u1' }).client))

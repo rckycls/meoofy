@@ -1,9 +1,9 @@
 import type { ExpoConfig } from 'expo/config'
 
 /** What iOS shows when it asks for the camera, and what App Store review reads. */
-const CAMERA_PERMISSION = 'PawPin uses the camera to take reference photos of your pet.'
+const CAMERA_PERMISSION = 'Meoofy uses the camera to take reference photos of your pet.'
 const PHOTOS_PERMISSION =
-  'PawPin uses your photo library so you can choose reference photos of your pet.'
+  'Meoofy uses your photo library so you can choose reference photos of your pet.'
 
 /**
  * Uploading source maps and debug symbols to Sentry needs SENTRY_AUTH_TOKEN. Without it the native
@@ -16,15 +16,15 @@ const SENTRY_UPLOAD_OFF =
   !process.env.SENTRY_AUTH_TOKEN || process.env.SENTRY_DISABLE_AUTO_UPLOAD === 'true'
 
 const config: ExpoConfig = {
-  name: 'PawPin',
-  slug: 'pawpin',
-  scheme: 'pawpin',
+  name: 'Meoofy',
+  slug: 'meoofy',
+  scheme: 'meoofy',
   version: '1.0.0',
   orientation: 'portrait',
   // The design is light-only (pastel flow tints, light glow blur).
   userInterfaceStyle: 'light',
   ios: {
-    bundleIdentifier: 'com.pawpin.pilot',
+    bundleIdentifier: 'com.meoofy.pilot',
     supportsTablet: true,
     // Sign in with Apple is one of the two ways in (spec section 3). This adds the entitlement
     // to the native project, and the capability to the App ID when EAS Build manages credentials.

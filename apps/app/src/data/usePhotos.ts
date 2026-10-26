@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { listPhotos, type PetPhoto } from '@pawpin/api'
-import type { PhotoView } from '@pawpin/core'
+import { listPhotos, type PetPhoto } from '@meoofy/api'
+import type { PhotoView } from '@meoofy/core'
 
 import { useSession } from '../state/SessionProvider'
 

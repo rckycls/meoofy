@@ -1,4 +1,4 @@
-# PawPin
+# Meoofy
 
 A private registry for pets. Owners sign in with Apple or a 6-digit email code, register their dogs and
 cats with reference photos, and keep every detail private until it is needed.
@@ -6,7 +6,7 @@ cats with reference photos, and keep every detail private until it is needed.
 This repository is sub-project 1, the app foundation and private registry: an Expo universal app
 (iOS and web) on a thin Supabase backend. The pilot is invite-only.
 
-- Product spec: [`docs/product/pawpin-design-spec.md`](docs/product/pawpin-design-spec.md)
+- Product spec: [`docs/product/meoofy-design-spec.md`](docs/product/meoofy-design-spec.md)
 - This sub-project's design: [`docs/superpowers/specs/2026-10-23-app-foundation-registry-design.md`](docs/superpowers/specs/2026-10-23-app-foundation-registry-design.md)
 
 | Folder | What is in it |
@@ -42,18 +42,18 @@ pnpm install
 pnpm db:start                          # the local Supabase stack; prints the API URL and anon key
 cp apps/app/.env.example apps/app/.env # then paste the anon key from `pnpm db:start`
 
-pnpm --filter @pawpin/app web          # the web app in a browser
-pnpm --filter @pawpin/app ios          # the iOS app in the simulator (see "iOS native notes")
+pnpm --filter @meoofy/app web          # the web app in a browser
+pnpm --filter @meoofy/app ios          # the iOS app in the simulator (see "iOS native notes")
 ```
 
 The app depends on `expo-dev-client`, so `expo start` (and the `ios` script above) opens a development
-build of PawPin, not Expo Go. Make that build once with `expo run:ios` (see
+build of Meoofy, not Expo Go. Make that build once with `expo run:ios` (see
 [iOS native notes](#ios-native-notes)), or start with `--go` to use Expo Go instead:
-`pnpm --filter @pawpin/app exec expo start --go`. The web is not affected: the `web` script runs
+`pnpm --filter @meoofy/app exec expo start --go`. The web is not affected: the `web` script runs
 `expo start --web`, which opens the app in a browser.
 
 Sign-in codes are emailed to a local inbox, [Mailpit](http://127.0.0.1:54324). The pilot is
-invite-only even locally: `supabase/seed.sql` allowlists `owner@pawpin.test` and `e2e@pawpin.test`.
+invite-only even locally: `supabase/seed.sql` allowlists `owner@meoofy.test` and `e2e@meoofy.test`.
 To use another address, insert it into `identity.pilot_allowlist`.
 
 Useful scripts (all from the repository root):
@@ -92,7 +92,7 @@ used. It needs:
 
 - the local Supabase stack running (`pnpm db:start`);
 - Deno;
-- Chromium for Playwright: `pnpm --filter @pawpin/app exec playwright install chromium`;
+- Chromium for Playwright: `pnpm --filter @meoofy/app exec playwright install chromium`;
 - `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`, from `apps/app/.env` or exported in
   the shell (CI exports them from `supabase status -o env`, because `.env` is git-ignored).
 
@@ -120,7 +120,7 @@ iOS Simulator, which is run by hand on a Mac before each TestFlight build. It ne
    `EXPO_PUBLIC_E2E=1` on the command line for that one build, and never put it in a file:
 
    ```sh
-   EXPO_PUBLIC_E2E=1 LANG=en_US.UTF-8 pnpm --filter @pawpin/app exec expo run:ios
+   EXPO_PUBLIC_E2E=1 LANG=en_US.UTF-8 pnpm --filter @meoofy/app exec expo run:ios
    ```
 
 The flow assumes a debug build with Metro serving it, and it has not been run yet (Maestro is not
@@ -176,7 +176,7 @@ that `apps/app/dist` neither points at `127.0.0.1:54321` nor has `EXPO_PUBLIC_E2
 
 | Profile | For | Notes |
 |---|---|---|
-| `development` | A development client | `developmentClient: true`, `EXPO_PUBLIC_E2E=1`. Needs `expo-dev-client`, which the app depends on (pinned). Its config plugin adds a local-network purpose string (`NSLocalNetworkUsageDescription`), an `_expo._tcp` entry in `NSBonjourServices` and an `exp+pawpin` URL scheme to the Info.plist; a build phase strips the first two from Release builds, so only the scheme ships in production, where it does nothing but open the app. The launcher itself is left out of Release builds |
+| `development` | A development client | `developmentClient: true`, `EXPO_PUBLIC_E2E=1`. Needs `expo-dev-client`, which the app depends on (pinned). Its config plugin adds a local-network purpose string (`NSLocalNetworkUsageDescription`), an `_expo._tcp` entry in `NSBonjourServices` and an `exp+meoofy` URL scheme to the Info.plist; a build phase strips the first two from Release builds, so only the scheme ships in production, where it does nothing but open the app. The launcher itself is left out of Release builds |
 | `preview` | Internal testing builds | `distribution: internal` |
 | `production` | TestFlight and the App Store | `autoIncrement: true`, and never `EXPO_PUBLIC_E2E` |
 
@@ -226,14 +226,14 @@ Builds read their `EXPO_PUBLIC_*` values from the EAS environment of the same na
   clean:
 
   ```sh
-  pnpm --filter @pawpin/app exec expo prebuild --clean
+  pnpm --filter @meoofy/app exec expo prebuild --clean
   ```
 
 - `pod install` (which `expo run:ios` and `prebuild` run) fails without a UTF-8 locale. Prefix the
-  command: `LANG=en_US.UTF-8 pnpm --filter @pawpin/app exec expo run:ios`.
+  command: `LANG=en_US.UTF-8 pnpm --filter @meoofy/app exec expo run:ios`.
 - `expo run:ios` rewrites the `ios` script in `apps/app/package.json`. Put it back to
   `expo start --ios` (see `git diff apps/app/package.json`) before you commit.
-- The camera and photo-library permission texts, Sign in with Apple and the bundle id (`com.pawpin.pilot`)
+- The camera and photo-library permission texts, Sign in with Apple and the bundle id (`com.meoofy.pilot`)
   come from `apps/app/app.config.ts`, and `src/config.test.ts` checks what ends up in the Info.plist.
 
 ## Database rules

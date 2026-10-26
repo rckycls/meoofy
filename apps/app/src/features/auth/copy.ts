@@ -1,9 +1,9 @@
-import { LIMITS } from '@pawpin/core'
+import { LIMITS } from '@meoofy/core'
 
 /** English copy for sign-in, the email code and the name step. */
 export const authCopy = {
   signIn: {
-    title: 'Welcome to PawPin',
+    title: 'Welcome to Meoofy',
     body: 'Sign in with Apple or a 6-digit code sent to your email. There’s no password to remember.',
     apple: 'Continue with Apple',
     divider: 'or',
@@ -43,7 +43,7 @@ export const authCopy = {
     // The same step opened from Account (`?mode=edit`) to change the name.
     edit: {
       title: 'Change your name',
-      body: 'This is how we greet you in PawPin.',
+      body: 'This is how we greet you in Meoofy.',
       action: 'Save',
       cancel: 'Cancel',
     },

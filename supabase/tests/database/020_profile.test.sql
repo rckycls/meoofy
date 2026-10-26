@@ -6,9 +6,9 @@ select plan(84);
 
 do $$
 begin
-  perform set_config('pawpin.a', tests.create_user('profile-a@pawpin.test')::text, true);
-  perform set_config('pawpin.b', tests.create_user('profile-b@pawpin.test')::text, true);
-  perform set_config('pawpin.c', tests.create_user('profile-c@pawpin.test')::text, true);
+  perform set_config('meoofy.a', tests.create_user('profile-a@meoofy.test')::text, true);
+  perform set_config('meoofy.b', tests.create_user('profile-b@meoofy.test')::text, true);
+  perform set_config('meoofy.c', tests.create_user('profile-c@meoofy.test')::text, true);
 end
 $$;
 
@@ -83,19 +83,19 @@ select table_privs_are('api', 'my_profile', 'anon', array[]::text[]);
 -- ---------------------------------------------------------------------------
 -- Unauthenticated callers
 -- ---------------------------------------------------------------------------
-select throws_ok($$ select api.update_profile('Alex') $$, 'P0001', 'PAWPIN:UNAUTHENTICATED',
+select throws_ok($$ select api.update_profile('Alex') $$, 'P0001', 'MEOOFY:UNAUTHENTICATED',
   'update_profile without a JWT throws UNAUTHENTICATED');
-select throws_ok($$ select api.complete_onboarding('owner') $$, 'P0001', 'PAWPIN:UNAUTHENTICATED',
+select throws_ok($$ select api.complete_onboarding('owner') $$, 'P0001', 'MEOOFY:UNAUTHENTICATED',
   'complete_onboarding without a JWT throws UNAUTHENTICATED');
 select throws_ok($$ select audit.record('test.event', 'test', null) $$, 'P0001',
-  'PAWPIN:UNAUTHENTICATED', 'audit.record without an actor throws UNAUTHENTICATED');
+  'MEOOFY:UNAUTHENTICATED', 'audit.record without an actor throws UNAUTHENTICATED');
 
 -- The authenticated role with no usable subject claim (a token without sub).
 select set_config('role', 'authenticated', true);
 select set_config('request.jwt.claims', '', true);
-select throws_ok($$ select api.update_profile('Alex') $$, 'P0001', 'PAWPIN:UNAUTHENTICATED',
+select throws_ok($$ select api.update_profile('Alex') $$, 'P0001', 'MEOOFY:UNAUTHENTICATED',
   'update_profile with no subject claim throws UNAUTHENTICATED');
-select throws_ok($$ select api.complete_onboarding('owner') $$, 'P0001', 'PAWPIN:UNAUTHENTICATED',
+select throws_ok($$ select api.complete_onboarding('owner') $$, 'P0001', 'MEOOFY:UNAUTHENTICATED',
   'complete_onboarding with no subject claim throws UNAUTHENTICATED');
 select is_empty($$ select 1 from api.my_profile $$,
   'api.my_profile returns nothing when there is no subject claim');
@@ -113,7 +113,7 @@ reset role;
 -- ---------------------------------------------------------------------------
 -- api.update_profile
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select lives_ok($$ select api.update_profile('  Alex  ') $$, 'update_profile accepts a padded name');
 select results_eq($$ select display_name from api.my_profile $$, $$ values ('Alex') $$,
@@ -127,20 +127,20 @@ select results_eq(
 select ok(not exists (select 1 from audit.events where metadata ? 'display_name'),
   'the profile.updated event has no display_name key');
 
-select throws_ok($$ select api.update_profile('   ') $$, 'P0001', 'PAWPIN:VALIDATION',
+select throws_ok($$ select api.update_profile('   ') $$, 'P0001', 'MEOOFY:VALIDATION',
   'a blank name throws VALIDATION');
 select throws_ok($$ select api.update_profile(E' 　 ') $$, 'P0001',
-  'PAWPIN:VALIDATION', 'a name of only non-ASCII whitespace throws VALIDATION');
-select throws_ok($$ select api.update_profile('') $$, 'P0001', 'PAWPIN:VALIDATION',
+  'MEOOFY:VALIDATION', 'a name of only non-ASCII whitespace throws VALIDATION');
+select throws_ok($$ select api.update_profile('') $$, 'P0001', 'MEOOFY:VALIDATION',
   'an empty name throws VALIDATION');
-select throws_ok($$ select api.update_profile(null) $$, 'P0001', 'PAWPIN:VALIDATION',
+select throws_ok($$ select api.update_profile(null) $$, 'P0001', 'MEOOFY:VALIDATION',
   'a null name throws VALIDATION');
-select throws_ok($$ select api.update_profile(repeat('a', 41)) $$, 'P0001', 'PAWPIN:VALIDATION',
+select throws_ok($$ select api.update_profile(repeat('a', 41)) $$, 'P0001', 'MEOOFY:VALIDATION',
   'a 41-character name throws VALIDATION');
-select throws_ok($$ select api.update_profile(repeat('🐶', 41)) $$, 'P0001', 'PAWPIN:VALIDATION',
+select throws_ok($$ select api.update_profile(repeat('🐶', 41)) $$, 'P0001', 'MEOOFY:VALIDATION',
   'a name is counted in characters, not bytes: 41 emoji throw VALIDATION');
 select throws_ok($$ select api.update_profile(' ' || repeat('a', 41) || ' ') $$, 'P0001',
-  'PAWPIN:VALIDATION', 'a name over the limit after trimming throws VALIDATION');
+  'MEOOFY:VALIDATION', 'a name over the limit after trimming throws VALIDATION');
 select results_eq($$ select display_name from api.my_profile $$, $$ values ('Alex') $$,
   'rejected names leave the stored name unchanged');
 select is((select count(*)::int from audit.events), 1, 'rejected names write no audit event');
@@ -178,8 +178,8 @@ select results_eq(
 -- Move the completion time into the past, so "unchanged" cannot be mistaken for "same now()".
 select tests.clear_auth();
 update identity.profiles set onboarding_completed_at = '2000-01-01T00:00:00Z'
- where id = current_setting('pawpin.a')::uuid;
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+ where id = current_setting('meoofy.a')::uuid;
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select lives_ok($$ select api.complete_onboarding('owner') $$, 'a second identical call succeeds');
 select lives_ok($$ select api.complete_onboarding('finder') $$,
@@ -191,16 +191,16 @@ select results_eq(
 );
 select is((select count(*)::int from audit.events where action = 'onboarding.completed'), 1,
   'repeat calls write no further audit event');
-select throws_ok($$ select api.complete_onboarding(null) $$, 'P0001', 'PAWPIN:VALIDATION',
+select throws_ok($$ select api.complete_onboarding(null) $$, 'P0001', 'MEOOFY:VALIDATION',
   'a null path throws VALIDATION');
 
 -- ---------------------------------------------------------------------------
 -- Isolation: each caller only ever touches and sees their own profile and events
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.b')::uuid);
+select tests.authenticate_as(current_setting('meoofy.b')::uuid);
 
 select results_eq($$ select id from api.my_profile $$,
-  $$ values (current_setting('pawpin.b')::uuid) $$,
+  $$ values (current_setting('meoofy.b')::uuid) $$,
   'user B sees only their own row in api.my_profile');
 select results_eq(
   $$ select display_name, onboarding_path::text, onboarding_completed_at is null
@@ -216,10 +216,10 @@ select results_eq($$ select display_name, onboarding_path::text from api.my_prof
   $$ values ('Bea', 'finder') $$, 'user B''s changes land on user B''s row');
 select is((select count(*)::int from audit.events), 2, 'user B sees exactly their own two events');
 
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select results_eq($$ select id from api.my_profile $$,
-  $$ values (current_setting('pawpin.a')::uuid) $$,
+  $$ values (current_setting('meoofy.a')::uuid) $$,
   'user A sees only their own row in api.my_profile');
 select results_eq($$ select display_name, onboarding_path::text from api.my_profile $$,
   $$ values (E'Sam　Lee', 'owner') $$, 'user B''s changes did not touch user A''s profile');
@@ -229,19 +229,19 @@ select is((select count(*)::int from audit.events), 5, 'user A sees exactly thei
 -- A caller whose profile no longer exists (deleted account, token still valid)
 -- ---------------------------------------------------------------------------
 select tests.clear_auth();
-delete from identity.profiles where id = current_setting('pawpin.c')::uuid;
-select tests.authenticate_as(current_setting('pawpin.c')::uuid);
+delete from identity.profiles where id = current_setting('meoofy.c')::uuid;
+select tests.authenticate_as(current_setting('meoofy.c')::uuid);
 
-select throws_ok($$ select api.update_profile('Cy') $$, 'P0001', 'PAWPIN:UNAUTHENTICATED',
+select throws_ok($$ select api.update_profile('Cy') $$, 'P0001', 'MEOOFY:UNAUTHENTICATED',
   'update_profile without a profile row throws UNAUTHENTICATED');
-select throws_ok($$ select api.complete_onboarding('owner') $$, 'P0001', 'PAWPIN:UNAUTHENTICATED',
+select throws_ok($$ select api.complete_onboarding('owner') $$, 'P0001', 'MEOOFY:UNAUTHENTICATED',
   'complete_onboarding without a profile row throws UNAUTHENTICATED');
 select is_empty($$ select 1 from audit.events $$, 'those failed calls wrote no audit event');
 
 -- ---------------------------------------------------------------------------
 -- Audit log: append-only for clients
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select throws_ok($$ update audit.events set action = 'forged' $$, '42501', null,
   'authenticated cannot update audit.events');
@@ -263,7 +263,7 @@ select tests.clear_auth();
 
 -- audit.record takes the actor from the JWT subject claim.
 select set_config('request.jwt.claims',
-  json_build_object('sub', current_setting('pawpin.a'))::text, true);
+  json_build_object('sub', current_setting('meoofy.a'))::text, true);
 select lives_ok(
   $$ select audit.record('test.recorded', 'test', 'f0000000-0000-4000-8000-000000000001',
                          '{"count": 2}') $$,
@@ -277,10 +277,10 @@ select set_config('request.jwt.claims', '', true);
 select results_eq(
   $$ select action, actor_id, subject_type, subject_id, metadata from audit.events
       where action like 'test.%' and actor_id is not null order by id $$,
-  $$ values ('test.recorded', current_setting('pawpin.a')::uuid, 'test',
+  $$ values ('test.recorded', current_setting('meoofy.a')::uuid, 'test',
              'f0000000-0000-4000-8000-000000000001'::uuid, '{"count": 2}'::jsonb),
-            ('test.defaults', current_setting('pawpin.a')::uuid, 'test', null, '{}'::jsonb),
-            ('test.null_metadata', current_setting('pawpin.a')::uuid, 'test', null, '{}'::jsonb) $$,
+            ('test.defaults', current_setting('meoofy.a')::uuid, 'test', null, '{}'::jsonb),
+            ('test.null_metadata', current_setting('meoofy.a')::uuid, 'test', null, '{}'::jsonb) $$,
   'audit.record uses the caller as actor and defaults metadata to an empty object'
 );
 

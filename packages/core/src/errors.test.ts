@@ -40,8 +40,8 @@ describe('AppError', () => {
 })
 
 describe('parseAppError', () => {
-  it('maps server PAWPIN codes from Postgres errors', () => {
-    expect(parseAppError({ message: 'PAWPIN:PET_LIMIT_REACHED', code: 'P0001' }).code).toBe(
+  it('maps server MEOOFY codes from Postgres errors', () => {
+    expect(parseAppError({ message: 'MEOOFY:PET_LIMIT_REACHED', code: 'P0001' }).code).toBe(
       'PET_LIMIT_REACHED',
     )
     for (const code of [
@@ -52,17 +52,17 @@ describe('parseAppError', () => {
       'PHOTO_QUALITY',
       'RATE_LIMITED',
     ] as const) {
-      expect(parseAppError({ message: `PAWPIN:${code}`, code: 'P0001' }).code).toBe(code)
+      expect(parseAppError({ message: `MEOOFY:${code}`, code: 'P0001' }).code).toBe(code)
     }
   })
 
-  it('finds the PAWPIN code inside a longer message', () => {
-    expect(parseAppError(new Error('rpc failed: PAWPIN:NOT_OWNER (detail)')).code).toBe('NOT_OWNER')
+  it('finds the MEOOFY code inside a longer message', () => {
+    expect(parseAppError(new Error('rpc failed: MEOOFY:NOT_OWNER (detail)')).code).toBe('NOT_OWNER')
   })
 
-  it('maps an unrecognised PAWPIN code to UNKNOWN', () => {
-    expect(parseAppError({ message: 'PAWPIN:SOMETHING_NEW' }).code).toBe('UNKNOWN')
-    expect(parseAppError({ message: 'PAWPIN:lowercase' }).code).toBe('UNKNOWN')
+  it('maps an unrecognised MEOOFY code to UNKNOWN', () => {
+    expect(parseAppError({ message: 'MEOOFY:SOMETHING_NEW' }).code).toBe('UNKNOWN')
+    expect(parseAppError({ message: 'MEOOFY:lowercase' }).code).toBe('UNKNOWN')
   })
 
   it('maps network failures to a retryable NETWORK error', () => {
@@ -98,8 +98,8 @@ describe('parseAppError', () => {
   })
 
   it('sets retryable from the mapped code', () => {
-    expect(parseAppError({ message: 'PAWPIN:RATE_LIMITED' }).retryable).toBe(true)
-    expect(parseAppError({ message: 'PAWPIN:VALIDATION' }).retryable).toBe(false)
+    expect(parseAppError({ message: 'MEOOFY:RATE_LIMITED' }).retryable).toBe(true)
+    expect(parseAppError({ message: 'MEOOFY:VALIDATION' }).retryable).toBe(false)
     expect(parseAppError({ status: 401, message: 'JWT expired' }).retryable).toBe(false)
   })
 
@@ -109,10 +109,10 @@ describe('parseAppError', () => {
   })
 
   it('keeps the original error as the cause and its message', () => {
-    const raw = { message: 'PAWPIN:NOT_OWNER', code: 'P0001' }
+    const raw = { message: 'MEOOFY:NOT_OWNER', code: 'P0001' }
     const e = parseAppError(raw)
     expect(e).toBeInstanceOf(AppError)
     expect(e.cause).toBe(raw)
-    expect(e.message).toBe('PAWPIN:NOT_OWNER')
+    expect(e.message).toBe('MEOOFY:NOT_OWNER')
   })
 })

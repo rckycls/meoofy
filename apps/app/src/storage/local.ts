@@ -4,11 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 /** Device-local keys (AsyncStorage on iOS, localStorage on the web). */
 export type LocalKey =
   /** `'true'` once onboarding O00–O02 is done on this device. */
-  | 'pawpin.onboardingSeen'
+  | 'meoofy.onboardingSeen'
   /** The O01 choice (`OnboardingPath`) until it is recorded after sign-in. */
-  | 'pawpin.onboardingPath'
+  | 'meoofy.onboardingPath'
   /** The unsent add-pet form, as JSON. */
-  | 'pawpin.petDraft'
+  | 'meoofy.petDraft'
 
 /** AsyncStorage's calls, which the web's localStorage answers synchronously. */
 export type DeviceStorage = {

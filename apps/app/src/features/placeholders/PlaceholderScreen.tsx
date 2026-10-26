@@ -8,7 +8,7 @@ import {
   type,
   type Flow,
   type StickerName,
-} from '@pawpin/ui'
+} from '@meoofy/ui'
 
 import { ContentColumn } from '../../layout/ContentColumn'
 import { placeholderCopy } from './copy'
@@ -16,7 +16,7 @@ import { placeholderCopy } from './copy'
 export type PlaceholderKind = keyof typeof placeholderCopy
 
 const look: Record<PlaceholderKind, { flow: Flow; sticker: StickerName }> = {
-  find: { flow: 'finder', sticker: 'paw-pin' },
+  find: { flow: 'finder', sticker: 'meoofy' },
   alerts: { flow: 'recovery', sticker: 'love-letter' },
 }
 

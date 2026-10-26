@@ -1,4 +1,4 @@
-import type { AppError } from '@pawpin/core'
+import type { AppError } from '@meoofy/core'
 
 import { authCopy } from './copy'
 

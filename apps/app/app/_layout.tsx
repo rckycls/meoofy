@@ -8,7 +8,7 @@ import { useFonts } from 'expo-font'
 import { Stack } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { colors } from '@pawpin/ui'
+import { colors } from '@meoofy/ui'
 
 import { env } from '../src/env'
 import { initSentry } from '../src/observability/sentry'
@@ -36,7 +36,7 @@ function HideSplash() {
 }
 
 export default function RootLayout() {
-  // `@pawpin/ui` text styles name these families (Inter_<weight>).
+  // `@meoofy/ui` text styles name these families (Inter_<weight>).
   const [fontsLoaded, fontError] = useFonts({
     Inter_400: Inter_400Regular,
     Inter_500: Inter_500Medium,

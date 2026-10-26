@@ -1,4 +1,4 @@
-import { navItems, type NavKey } from '@pawpin/ui'
+import { navItems, type NavKey } from '@meoofy/ui'
 
 /** The route behind each nav destination. */
 export const tabHref = {

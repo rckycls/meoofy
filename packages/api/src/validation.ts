@@ -1,4 +1,4 @@
-import { AppError, petInputSchema } from '@pawpin/core'
+import { AppError, petInputSchema } from '@meoofy/core'
 
 /** The core id rule (any 8-4-4-4-12 hex uuid, as Postgres accepts), shared by pets and photos. */
 const idSchema = petInputSchema.shape.id

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { getEntitlement } from '@pawpin/api'
+import { getEntitlement } from '@meoofy/api'
 
 import { useSession } from '../state/SessionProvider'
 

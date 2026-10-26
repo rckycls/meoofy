@@ -1,5 +1,5 @@
 // Every exported function rejects with an AppError only, whatever supabase-js hands back.
-import { AppError, type OnboardingPath } from '@pawpin/core'
+import { AppError, type OnboardingPath } from '@meoofy/core'
 import { AuthApiError, AuthRetryableFetchError, type OAuthResponse } from '@supabase/supabase-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -21,16 +21,16 @@ import {
   updatePet,
   uploadPhoto,
   verifyEmailCode,
-  type PawpinClient,
+  type MeoofyClient,
 } from './index'
 import { offline, respond, stubClient } from './testSupport'
 
 const PET = '6f1c1d4e-1111-4222-8333-944455556666'
 const PHOTO = '7a2b3c4d-5555-4666-8777-988899990000'
 
-const calls: [string, (c: PawpinClient) => Promise<unknown>][] = [
-  ['sendEmailCode', (c) => sendEmailCode(c, 'a@pawpin.test')],
-  ['verifyEmailCode', (c) => verifyEmailCode(c, 'a@pawpin.test', '123456')],
+const calls: [string, (c: MeoofyClient) => Promise<unknown>][] = [
+  ['sendEmailCode', (c) => sendEmailCode(c, 'a@meoofy.test')],
+  ['verifyEmailCode', (c) => verifyEmailCode(c, 'a@meoofy.test', '123456')],
   ['signInWithAppleIdToken', (c) => signInWithAppleIdToken(c, 'id-token', 'nonce')],
   ['deleteAccount', (c) => deleteAccount(c)],
   ['getProfile', (c) => getProfile(c)],
@@ -74,12 +74,12 @@ describe('network failures reject with a retryable NETWORK AppError', () => {
 describe('server errors reject with the AppError the server named', () => {
   it.each(calls)('%s', async (_name, call) => {
     // Auth, PostgREST and the Edge Function all put the message somewhere different; each
-    // function must find PAWPIN:RATE_LIMITED in its own service's answer.
+    // function must find MEOOFY:RATE_LIMITED in its own service's answer.
     const body = {
       code: 'P0001',
-      message: 'PAWPIN:RATE_LIMITED',
-      msg: 'PAWPIN:RATE_LIMITED',
-      error: 'PAWPIN:RATE_LIMITED',
+      message: 'MEOOFY:RATE_LIMITED',
+      msg: 'MEOOFY:RATE_LIMITED',
+      error: 'MEOOFY:RATE_LIMITED',
     }
     const error = await call(stubClient(respond(400, body))).catch((e: unknown) => e)
     expect(error).toBeInstanceOf(AppError)
@@ -160,7 +160,7 @@ describe('reads', () => {
 
 describe('deleteAccount', () => {
   it('maps the function 401 body to UNAUTHENTICATED', async () => {
-    const fetch = respond(401, { error: 'PAWPIN:UNAUTHENTICATED' })
+    const fetch = respond(401, { error: 'MEOOFY:UNAUTHENTICATED' })
     await expect(deleteAccount(stubClient(fetch))).rejects.toMatchObject({
       name: 'AppError',
       code: 'UNAUTHENTICATED',
@@ -192,14 +192,14 @@ describe('signInWithAppleWeb', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('sends the browser to Apple through Supabase and back to the page it came from', async () => {
-    vi.stubGlobal('location', { origin: 'https://app.pawpin.test' })
+    vi.stubGlobal('location', { origin: 'https://app.meoofy.test' })
     const client = stubClient(vi.fn(offline))
     const oauth = vi.spyOn(client.auth, 'signInWithOAuth').mockResolvedValue(redirect)
 
     await expect(signInWithAppleWeb(client)).resolves.toBeUndefined()
     expect(oauth).toHaveBeenCalledWith({
       provider: 'apple',
-      options: { redirectTo: 'https://app.pawpin.test/' },
+      options: { redirectTo: 'https://app.meoofy.test/' },
     })
   })
 

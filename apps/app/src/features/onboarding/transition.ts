@@ -1,4 +1,4 @@
-import { resolveMotion, useMotionPreference } from '@pawpin/ui'
+import { resolveMotion, useMotionPreference } from '@meoofy/ui'
 
 export type StepTransition = {
   animation: 'fade' | 'fade_from_bottom'

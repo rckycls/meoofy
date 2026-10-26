@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router'
-import { colors } from '@pawpin/ui'
+import { colors } from '@meoofy/ui'
 
 import { AuthFlowProvider } from '../../src/features/auth/AuthFlow'
 import { useStepTransition } from '../../src/features/onboarding/transition'

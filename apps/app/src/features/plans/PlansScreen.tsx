@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { petLimit, type Tier } from '@pawpin/core'
+import { petLimit, type Tier } from '@meoofy/core'
 import {
   Button,
   Card,
@@ -10,7 +10,7 @@ import {
   space,
   textStyle,
   type,
-} from '@pawpin/ui'
+} from '@meoofy/ui'
 
 import { useEntitlement } from '../../data/useEntitlement'
 import { ContentColumn } from '../../layout/ContentColumn'

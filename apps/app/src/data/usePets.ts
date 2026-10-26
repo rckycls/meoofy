@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { listPets } from '@pawpin/api'
+import { listPets } from '@meoofy/api'
 
 import { useSession } from '../state/SessionProvider'
 

@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 
 import { clearDraft, loadDraft, saveDraft, type PetDraft } from './draft'
 
-const KEY = 'pawpin.petDraft'
+const KEY = 'meoofy.petDraft'
 const stored = async () => {
   const raw = await AsyncStorage.getItem(KEY)
   return raw === null ? null : (JSON.parse(raw) as unknown)

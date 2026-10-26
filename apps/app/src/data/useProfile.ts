@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { getProfile } from '@pawpin/api'
+import { getProfile } from '@meoofy/api'
 
 import { useSession } from '../state/SessionProvider'
 

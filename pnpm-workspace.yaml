@@ -1,11 +1,15 @@
 packages:
   - apps/*
   - packages/*
+  # The Remotion demo video is not committed yet; keep it out of the workspace and lockfile
+  # until it is. Remove this line in the commit that adds apps/video.
+  - '!apps/video'
 
 # Install scripts stay off: these packages ship prebuilt binaries as optional
 # platform packages (@sentry/cli: @sentry/cli-darwin and friends), so their
 # postinstall steps are not needed.
 allowBuilds:
+  esbuild: false
   '@parcel/watcher': false
   '@sentry/cli': false
   unrs-resolver: false

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { LIMITS, type PhotoView } from '@pawpin/core'
+import { LIMITS, type PhotoView } from '@meoofy/core'
 import { decodeJwt } from 'jose'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
@@ -9,7 +9,7 @@ import {
   isPhotoLimitReached,
   listPhotos,
   uploadPhoto,
-  type PawpinClient,
+  type MeoofyClient,
   type PetPhoto,
 } from '../src'
 import { cleanup, makeTestJpeg, newOwner, queuedPaths, sql } from './helpers'
@@ -17,7 +17,7 @@ import { cleanup, makeTestJpeg, newOwner, queuedPaths, sql } from './helpers'
 afterAll(cleanup)
 
 /** A signed-in owner with one pet. */
-async function ownerWithPet(): Promise<{ client: PawpinClient; userId: string; petId: string }> {
+async function ownerWithPet(): Promise<{ client: MeoofyClient; userId: string; petId: string }> {
   const { client, userId } = await newOwner()
   const { id: petId } = await createPet(client, {
     id: randomUUID(),

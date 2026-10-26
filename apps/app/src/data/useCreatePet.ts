@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { randomUUID } from 'expo-crypto'
-import { createPet } from '@pawpin/api'
-import type { PetInput } from '@pawpin/core'
+import { createPet } from '@meoofy/api'
+import type { PetInput } from '@meoofy/core'
 
 import { useSession } from '../state/SessionProvider'
 

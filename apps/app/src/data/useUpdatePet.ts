@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { updatePet } from '@pawpin/api'
-import type { PetPatch } from '@pawpin/core'
+import { updatePet } from '@meoofy/api'
+import type { PetPatch } from '@meoofy/core'
 
 import { useSession } from '../state/SessionProvider'
 

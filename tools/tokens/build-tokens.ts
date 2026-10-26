@@ -1,5 +1,5 @@
 // Reads the flattened Figma variable export (figma-tokens.json) and writes the
-// design tokens module used by @pawpin/ui. Run with `pnpm gen:tokens`.
+// design tokens module used by @meoofy/ui. Run with `pnpm gen:tokens`.
 //
 // Only erasable TypeScript syntax is used so Node can run this file directly.
 import { readFileSync, writeFileSync } from 'node:fs'

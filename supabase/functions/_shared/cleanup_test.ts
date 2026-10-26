@@ -140,7 +140,7 @@ Deno.test('storage-cleanup refuses callers without the service role key', async 
     const { deps, calls } = fakeDeps(ROWS)
     const res = await cleanupHandler({ ...deps, serviceKey: SERVICE_KEY })(request({ headers }))
     assert.equal(res.status, 401, JSON.stringify(headers))
-    assert.deepEqual(await res.json(), { error: 'PAWPIN:UNAUTHENTICATED' })
+    assert.deepEqual(await res.json(), { error: 'MEOOFY:UNAUTHENTICATED' })
     assert.deepEqual(calls, [], 'nothing runs')
   }
 })
@@ -181,7 +181,7 @@ Deno.test('storage-cleanup answers 500 when the run fails', async () => {
       request({ headers: { Authorization: `Bearer ${SERVICE_KEY}` } }),
     )
     assert.equal(res.status, 500)
-    assert.deepEqual(await res.json(), { error: 'PAWPIN:UNKNOWN' })
+    assert.deepEqual(await res.json(), { error: 'MEOOFY:UNKNOWN' })
   } finally {
     console.error = quiet
   }

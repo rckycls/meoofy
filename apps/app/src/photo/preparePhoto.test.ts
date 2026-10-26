@@ -1,5 +1,5 @@
 import { ImageManipulator } from 'expo-image-manipulator'
-import { LIMITS } from '@pawpin/core'
+import { LIMITS } from '@meoofy/core'
 
 import { FIXTURE_SIZE, fixtureBase64, fixtureBytes, type FixtureName } from '../testing/fixtures'
 import { preparePhoto, toGray, type Decode, type Manipulate } from './preparePhoto'

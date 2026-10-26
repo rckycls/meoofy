@@ -28,7 +28,7 @@ const PHOTO_READY_TIMEOUT = 45_000
 const test = base.extend<{ email: string }>({
   // eslint-disable-next-line no-empty-pattern
   email: async ({}, use) => {
-    const email = `e2e+${Date.now()}-${randomUUID().slice(0, 8)}@pawpin.test`
+    const email = `e2e+${Date.now()}-${randomUUID().slice(0, 8)}@meoofy.test`
     try {
       await allowlistOwner(email)
       // An address nothing has been sent to yet, so the first code that arrives is this test's.
@@ -100,7 +100,7 @@ async function toCodeScreen(page: Page, email: string): Promise<string> {
   await shot(page, '03-o02-privacy')
   await page.getByRole('button', { name: 'Sounds good', exact: true }).click()
 
-  await expect(page.getByText('Welcome to PawPin')).toBeVisible()
+  await expect(page.getByText('Welcome to Meoofy')).toBeVisible()
   await shot(page, '04-sign-in')
   await page.getByTestId('email-input').fill(email)
   return codeAfter(email, async () => {
@@ -124,9 +124,9 @@ async function toAllSet(page: Page, code: string) {
   await shot(page, '07-o03-all-set')
 }
 
-/** O03, then "Explore PawPin": Home with nothing registered yet (S01). */
+/** O03, then "Explore Meoofy": Home with nothing registered yet (S01). */
 async function toEmptyHome(page: Page) {
-  await page.getByRole('button', { name: 'Explore PawPin', exact: true }).click()
+  await page.getByRole('button', { name: 'Explore Meoofy', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Your circle starts here' })).toBeVisible()
 }
 

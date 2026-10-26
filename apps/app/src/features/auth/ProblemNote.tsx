@@ -1,5 +1,5 @@
 import { View } from 'react-native'
-import { Card } from '@pawpin/ui'
+import { Card } from '@meoofy/ui'
 
 /**
  * A failure or refusal that belongs to no single field (invite-only, offline, a refused code). It

@@ -5,8 +5,8 @@ import {
   type PetInput,
   type PetPatch,
   type Species,
-} from '@pawpin/core'
-import type { PawpinClient } from './client'
+} from '@meoofy/core'
+import type { MeoofyClient } from './client'
 import type { Database } from './database.types'
 import { toAppError, withStatus } from './errors'
 import { parseId, validationError } from './validation'
@@ -58,7 +58,7 @@ function toPet(row: PetRow): Pet {
 }
 
 /** The signed-in owner's pets, oldest first. */
-export async function listPets(c: PawpinClient): Promise<Pet[]> {
+export async function listPets(c: MeoofyClient): Promise<Pet[]> {
   try {
     const { data, error, status } = await c
       .from('pets')
@@ -76,7 +76,7 @@ export async function listPets(c: PawpinClient): Promise<Pet[]> {
  * One of the signed-in owner's pets, or `null` when they have none with that id (someone else's
  * pet reads as `null` too). An id that is not a uuid rejects with VALIDATION.
  */
-export async function getPet(c: PawpinClient, id: string): Promise<Pet | null> {
+export async function getPet(c: MeoofyClient, id: string): Promise<Pet | null> {
   try {
     const petId = parseId(id)
     const { data, error, status } = await c
@@ -97,7 +97,7 @@ export async function getPet(c: PawpinClient, id: string): Promise<Pet | null> {
  * rejects with PET_LIMIT_REACHED; the server serialises one owner's creates, so a double tap
  * can't slip past the limit.
  */
-export async function createPet(c: PawpinClient, input: PetInput): Promise<Pet> {
+export async function createPet(c: MeoofyClient, input: PetInput): Promise<Pet> {
   try {
     const parsed = petInputSchema.safeParse(input)
     if (!parsed.success) throw validationError(parsed.error)
@@ -124,7 +124,7 @@ export async function createPet(c: PawpinClient, input: PetInput): Promise<Pet> 
  * (or an empty breed) clears breed or age. Someone else's pet, or one that doesn't exist, rejects
  * with NOT_OWNER.
  */
-export async function updatePet(c: PawpinClient, id: string, patch: PetPatch): Promise<Pet> {
+export async function updatePet(c: MeoofyClient, id: string, patch: PetPatch): Promise<Pet> {
   try {
     const petId = parseId(id)
     const parsed = petPatchSchema.safeParse(patch)
@@ -151,7 +151,7 @@ export async function updatePet(c: PawpinClient, id: string, patch: PetPatch): P
  * Deletes one of the owner's pets with all its photos (their files are queued for cleanup).
  * Resolves when the pet is already gone, so a retried delete succeeds (Ruling 18).
  */
-export async function deletePet(c: PawpinClient, id: string): Promise<void> {
+export async function deletePet(c: MeoofyClient, id: string): Promise<void> {
   try {
     const petId = parseId(id)
     const { error, status } = await c.rpc('delete_pet', { id: petId })

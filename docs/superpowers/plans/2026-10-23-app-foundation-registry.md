@@ -1,4 +1,4 @@
-# PawPin App Foundation and Private Registry Implementation Plan
+# Meoofy App Foundation and Private Registry Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,16 +8,16 @@
 
 **Tech Stack:** Expo SDK 58 (Expo Router, expo-camera, expo-image-picker, expo-image-manipulator, expo-apple-authentication, expo-secure-store), React Native + react-native-web, Reanimated 4, react-native-svg + @svgr/cli, TanStack Query 5 (+ persist client), zod, jpeg-js, Supabase (Postgres 17, Auth, Storage, Edge Functions on Deno, pg_cron + pg_net), supabase-js 2, Vitest (core, api), Jest + jest-expo + React Native Testing Library (ui, app), pgTAP via `supabase test db`, Maestro (iOS end-to-end), Playwright (web end-to-end), Sentry (`@sentry/react-native`), EAS Build/Submit/Hosting.
 
-**Spec:** `docs/superpowers/specs/2026-10-23-app-foundation-registry-design.md`. The parent product spec is `docs/product/pawpin-design-spec.md`. Executors read both.
+**Spec:** `docs/superpowers/specs/2026-10-23-app-foundation-registry-design.md`. The parent product spec is `docs/product/meoofy-design-spec.md`. Executors read both.
 
 ## Global Constraints
 
-- Repository root: `/Users/rockycelis/Documents/Codex/2026-10-23/i/pawpin`. Package manager is pnpm 11 with `node-linker=hoisted` in `.npmrc`. Node 24.x.
-- Package names: `@pawpin/app`, `@pawpin/ui`, `@pawpin/api`, `@pawpin/core`. Dependencies run only `app → api → core` and `app → ui`. `core` has no internal dependencies.
+- Repository root: `/Users/rockycelis/Documents/Codex/2026-10-23/i/meoofy`. Package manager is pnpm 11 with `node-linker=hoisted` in `.npmrc`. Node 24.x.
+- Package names: `@meoofy/app`, `@meoofy/ui`, `@meoofy/api`, `@meoofy/core`. Dependencies run only `app → api → core` and `app → ui`. `core` has no internal dependencies.
 - TypeScript `strict: true` everywhere. Pin exact versions (no `^`) for expo, react-native, supabase-js and the supabase CLI.
 - Screens never import `@supabase/supabase-js`. Only `packages/api` may.
 - Clients get **no** insert/update/delete policies or grants on any table. Writes happen only through `api.*` functions or Edge Functions.
-- Server errors raise `PAWPIN:<CODE>`. Codes: `UNAUTHENTICATED`, `NOT_OWNER`, `VALIDATION`, `PET_LIMIT_REACHED`, `PHOTO_QUALITY`, `RATE_LIMITED`. Client-only codes: `INVITE_ONLY`, `NETWORK`, `UNKNOWN`.
+- Server errors raise `MEOOFY:<CODE>`. Codes: `UNAUTHENTICATED`, `NOT_OWNER`, `VALIDATION`, `PET_LIMIT_REACHED`, `PHOTO_QUALITY`, `RATE_LIMITED`. Client-only codes: `INVITE_ONLY`, `NETWORK`, `UNKNOWN`.
 - Limits, copied from the spec:
   - Pet name 1–40 characters; breed ≤ 80; `age_months` 0–360; age form years 0–30 plus months 0–11.
   - Display name 1–40.
@@ -32,7 +32,7 @@
 - Reduce Motion: loops stop and entrances become a 160 ms opacity fade. Buttons respond from the first frame. Status, privacy and error text never animate.
 - Tap targets ≥ 44 pt. Text and background pairs come only from the token roles (all AA-checked).
 - Layout widths: < 768 px `mobile`; 768–1023 px `mobile-centered` (content max width 560); ≥ 1024 px `desktop` (two-column W06 layout, top nav instead of tab bar).
-- iOS bundle identifier is `com.pawpin.pilot`. Task 25's setup wizard lets the owner change it before the first EAS build.
+- iOS bundle identifier is `com.meoofy.pilot`. Task 25's setup wizard lets the owner change it before the first EAS build.
 - Commits: Conventional Commits. Every message ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Review Focus
@@ -54,7 +54,7 @@
 ## File Structure
 
 ```
-pawpin/
+meoofy/
 ├─ package.json  pnpm-workspace.yaml  .npmrc  tsconfig.base.json  eslint.config.js  .prettierrc
 ├─ tools/
 │  ├─ stickers/stickers.py          (exists) sticker artwork source
@@ -106,13 +106,13 @@ pawpin/
 ```ts
 import { describe, expect, it } from 'vitest'
 import * as core from './index'
-describe('@pawpin/core', () => {
-  it('exports a package marker', () => { expect(core.PACKAGE).toBe('@pawpin/core') })
+describe('@meoofy/core', () => {
+  it('exports a package marker', () => { expect(core.PACKAGE).toBe('@meoofy/core') })
 })
 ```
 
-- [ ] **Step 2: Run `pnpm --filter @pawpin/core test` and confirm it fails because `PACKAGE` is undefined.**
-- [ ] **Step 3: Add `export const PACKAGE = '@pawpin/core'` and the workspace/config files listed above.**
+- [ ] **Step 2: Run `pnpm --filter @meoofy/core test` and confirm it fails because `PACKAGE` is undefined.**
+- [ ] **Step 3: Add `export const PACKAGE = '@meoofy/core'` and the workspace/config files listed above.**
 - [ ] **Step 4: Run `pnpm install && pnpm verify` and confirm typecheck, lint and 1 test pass.**
 - [ ] **Step 5: Commit** — `chore: scaffold pnpm workspace and verify pipeline`
 
@@ -163,7 +163,7 @@ expect(formatAge(36)).toBe('3 years'); expect(formatAge(14)).toBe('1 year 2 mont
 expect(formatAge(12)).toBe('1 year'); expect(formatAge(5)).toBe('5 months'); expect(formatAge(1)).toBe('1 month'); expect(formatAge(null)).toBe('')
 ```
 
-- [ ] **Step 2: Run `pnpm --filter @pawpin/core test` and confirm the new tests fail.**
+- [ ] **Step 2: Run `pnpm --filter @meoofy/core test` and confirm the new tests fail.**
 - [ ] **Step 3: Implement the interfaces above.** Use zod `.transform(trim)` then `.refine(s => codePointLength(s) >= 1 && <= max)`. Breed normalises `''` to `null`. `contentType` is `z.literal('image/jpeg')`.
 - [ ] **Step 4: Run the tests and confirm all pass.**
 - [ ] **Step 5: Commit** — `feat(core): domain limits, tiers, validation and age helpers`
@@ -188,14 +188,14 @@ expect(formatAge(12)).toBe('1 year'); expect(formatAge(5)).toBe('5 months'); exp
 
 ```ts
 // errors.test.ts
-expect(parseAppError({ message: 'PAWPIN:PET_LIMIT_REACHED', code: 'P0001' }).code).toBe('PET_LIMIT_REACHED')
+expect(parseAppError({ message: 'MEOOFY:PET_LIMIT_REACHED', code: 'P0001' }).code).toBe('PET_LIMIT_REACHED')
 expect(parseAppError(new TypeError('Network request failed')).code).toBe('NETWORK')
 expect(parseAppError(new TypeError('Failed to fetch')).retryable).toBe(true)
 expect(parseAppError({ message: 'This pilot is invite-only' }).code).toBe('INVITE_ONLY')
 expect(parseAppError({ status: 401, message: 'JWT expired' }).code).toBe('UNAUTHENTICATED')
 expect(parseAppError('weird').code).toBe('UNKNOWN')
-expect(parseAppError({ message: 'PAWPIN:RATE_LIMITED' }).retryable).toBe(true)
-expect(parseAppError({ message: 'PAWPIN:VALIDATION' }).retryable).toBe(false)
+expect(parseAppError({ message: 'MEOOFY:RATE_LIMITED' }).retryable).toBe(true)
+expect(parseAppError({ message: 'MEOOFY:VALIDATION' }).retryable).toBe(false)
 // photoQuality.test.ts
 const flat = new Uint8Array(64 * 64).fill(128)
 expect(analyzeGray(flat, 64, 64)).toEqual({ brightness: 128, blurScore: 0 })
@@ -210,7 +210,7 @@ expect(assessPhoto({ brightness: 40, blurScore: 80, width: 1200, height: 720 }))
 
 - [ ] **Step 2: Run the tests and confirm they fail.**
 - [ ] **Step 3: Implement.**
-  - `parseAppError`: match `/PAWPIN:([A-Z_]+)/` in `message`. Network `TypeError`s → `NETWORK`. Status 401 or a JWT message → `UNAUTHENTICATED`. A message containing `invite-only` → `INVITE_ONLY`. Anything else → `UNKNOWN`.
+  - `parseAppError`: match `/MEOOFY:([A-Z_]+)/` in `message`. Network `TypeError`s → `NETWORK`. Status 401 or a JWT message → `UNAUTHENTICATED`. A message containing `invite-only` → `INVITE_ONLY`. Anything else → `UNKNOWN`.
   - `analyzeGray`: brightness is the mean. Blur is the variance of the 4-neighbour Laplacian (`4·p − up − down − left − right`) over interior pixels.
   - `assessPhoto`: checks in the order shown, using `LIMITS`.
 - [ ] **Step 4: Run the tests and confirm they pass.**
@@ -231,7 +231,7 @@ expect(assessPhoto({ brightness: 40, blurScore: 80, width: 1200, height: 720 }))
   - Tables and enums exactly as spec §5, plus `registry.storage_deletions(id bigserial, storage_path text, requested_at timestamptz default now(), attempts int default 0, last_error text)` and `identity.pilot_allowlist`.
   - SQL `registry.limits() returns jsonb` (immutable).
   - `entitlements.pet_limit(tier entitlements.tier) returns int`, returning null for max.
-  - `internal.fail(code text, detail text default null)`, which raises `PAWPIN:<code>`.
+  - `internal.fail(code text, detail text default null)`, which raises `MEOOFY:<code>`.
   - Trigger `identity.on_auth_user_created` on `auth.users` insert. It inserts `identity.profiles(id, display_name)`, using `raw_user_meta_data->>'given_name'`, else `full_name`, else `''`, trimmed to 40. It also inserts `entitlements.accounts(owner_id)`.
   - Test helpers `tests.create_user(email text) returns uuid`, `tests.authenticate_as(uid uuid)`, `tests.clear_auth()`.
 - `config.toml`:
@@ -257,14 +257,14 @@ expect(sqlLimits()).toMatchObject({ petNameMax: 40, breedMax: 80, ageMonthsMax: 
   - `tests.authenticate_as(userB)` sees 0 of user A's pets (A's rows inserted as `postgres`).
   - Inserting into `registry.pets` as `authenticated` throws `42501`.
   - `select entitlements.pet_limit('free') = 3`, and `pet_limit('max') is null`.
-- [ ] **Step 3: Run `pnpm db:start`, then `pnpm --filter @pawpin/core test` and `pnpm test:db`, and confirm both fail.**
+- [ ] **Step 3: Run `pnpm db:start`, then `pnpm --filter @meoofy/core test` and `pnpm test:db`, and confirm both fail.**
 - [ ] **Step 4: Implement the pieces.**
   - `sqlLimits()` maps `LIMITS` plus `tierLimits` into the JSON shape.
   - `emit-sql-limits.ts` writes the migration: `create or replace function registry.limits() returns jsonb language sql immutable as $$ select '<json>'::jsonb $$;`.
   - Write the schema migration (schemas, enums, tables, checks using `char_length`, the `updated_at` trigger, the auth trigger, `entitlements.pet_limit`, `internal.fail`, grants: `usage` on `api` to `authenticated`; `select` only on the tables).
   - Write the RLS migration: enable RLS on every table, add owner select policies, no write policies.
   - Write `000_helpers.sql`. It has no begin/rollback, so the helpers persist across test files. It ends with `select plan(1); select pass('helpers'); select * from finish();`.
-- [ ] **Step 5: Run `pnpm gen:sql-limits && pnpm db:reset && pnpm test:db && pnpm --filter @pawpin/core test` and confirm all pass.**
+- [ ] **Step 5: Run `pnpm gen:sql-limits && pnpm db:reset && pnpm test:db && pnpm --filter @meoofy/core test` and confirm all pass.**
 - [ ] **Step 6: Commit** — `feat(db): schemas, tables, RLS and generated SQL limits`
 
 ---
@@ -284,9 +284,9 @@ expect(sqlLimits()).toMatchObject({ petNameMax: 40, breedMax: 80, ageMonthsMax: 
   - `api.update_profile(display_name text) returns void`.
 
 - [ ] **Step 1: Write the failing pgTAP tests:**
-  - Unauthenticated `api.update_profile('Alex')` throws `PAWPIN:UNAUTHENTICATED`.
+  - Unauthenticated `api.update_profile('Alex')` throws `MEOOFY:UNAUTHENTICATED`.
   - `update_profile('  Alex  ')` stores `Alex` and writes one `profile.updated` event, whose metadata has no `display_name` key.
-  - `update_profile('   ')` and a 41-character name throw `PAWPIN:VALIDATION`.
+  - `update_profile('   ')` and a 41-character name throw `MEOOFY:VALIDATION`.
   - `complete_onboarding('owner')` called twice leaves one completion timestamp (unchanged on the second call) and writes 1 event.
   - `authenticated` cannot `update`/`delete` `audit.events` (`42501`).
 - [ ] **Step 2: Run `pnpm test:db` and confirm the new file fails.**
@@ -310,14 +310,14 @@ expect(sqlLimits()).toMatchObject({ petNameMax: 40, breedMax: 80, ageMonthsMax: 
   - `api.delete_pet(id uuid) returns void`
 
 - [ ] **Step 1: Write the failing pgTAP tests:**
-  - User A creates 3 pets. The 4th throws `PAWPIN:PET_LIMIT_REACHED`.
+  - User A creates 3 pets. The 4th throws `MEOOFY:PET_LIMIT_REACHED`.
   - Setting A's tier to `pro` (as postgres) then allows a 4th.
   - Repeating `create_pet` with an existing id and the same owner returns that row and adds no row and no event.
-  - Using user A's pet id as user B throws `PAWPIN:NOT_OWNER`.
-  - `create_pet accepts 40 emoji`: `repeat('🐶',40)` is accepted and `repeat('🐶',41)` throws `PAWPIN:VALIDATION`.
-  - Names `'   '`, breed over 80, `age_months` 361 → `PAWPIN:VALIDATION`.
+  - Using user A's pet id as user B throws `MEOOFY:NOT_OWNER`.
+  - `create_pet accepts 40 emoji`: `repeat('🐶',40)` is accepted and `repeat('🐶',41)` throws `MEOOFY:VALIDATION`.
+  - Names `'   '`, breed over 80, `age_months` 361 → `MEOOFY:VALIDATION`.
   - `update_pet` with `clear_breed => true` sets breed null.
-  - B updating or deleting A's pet → `PAWPIN:NOT_OWNER`.
+  - B updating or deleting A's pet → `MEOOFY:NOT_OWNER`.
   - `delete_pet` removes the row, cascades photos, inserts one `registry.storage_deletions` row per photo path, and writes `pet.deleted`.
   - Archived pets don't count toward the limit.
   - Every success writes exactly one audit event with an empty or name-free `metadata`.
@@ -355,11 +355,11 @@ if entitlements.pet_limit(tier) is not null and (select count(*) from registry.p
 
 - [ ] **Step 1: Write the failing pgTAP tests:**
   - `request_photo_upload` returns `<A>/<pet>/<photo>.jpg` and creates a `pending` row.
-  - `content_type 'image/png'` and `bytes 4194305` → `PAWPIN:VALIDATION`.
-  - A 7th non-rejected photo → `PAWPIN:VALIDATION`.
-  - The 31st request within an hour → `PAWPIN:RATE_LIMITED`. Count `photo.upload_requested` audit events in the last hour.
-  - B requesting for A's pet → `PAWPIN:NOT_OWNER`.
-  - `confirm_photo` without a `storage.objects` row → `PAWPIN:PHOTO_QUALITY`. With a row but `height 719` → `PAWPIN:PHOTO_QUALITY`. Valid → `ready` with `confirmed_at` set.
+  - `content_type 'image/png'` and `bytes 4194305` → `MEOOFY:VALIDATION`.
+  - A 7th non-rejected photo → `MEOOFY:VALIDATION`.
+  - The 31st request within an hour → `MEOOFY:RATE_LIMITED`. Count `photo.upload_requested` audit events in the last hour.
+  - B requesting for A's pet → `MEOOFY:NOT_OWNER`.
+  - `confirm_photo` without a `storage.objects` row → `MEOOFY:PHOTO_QUALITY`. With a row but `height 719` → `MEOOFY:PHOTO_QUALITY`. Valid → `ready` with `confirmed_at` set.
   - `confirm_photo replaces same view`: a second ready `front` photo leaves exactly one ready `front`, and queues the old path in `registry.storage_deletions`.
   - As `authenticated` A: inserting a `storage.objects` row at path `<B>/…` fails, and A's pending path succeeds. Selecting B's objects returns 0 rows.
   - `delete_photo` queues the path and removes the row.
@@ -374,14 +374,14 @@ if entitlements.pet_limit(tier) is not null and (select count(*) from registry.p
 
 **Files:**
 - Create: `supabase/migrations/20261023000007_auth_hook.sql` (`identity.signup_rejections(email citext, rejected_at timestamptz default now())`, `identity.before_user_created(event jsonb) returns jsonb`, grants to `supabase_auth_admin` only)
-- Modify: `supabase/config.toml` (`[auth.hook.before_user_created] enabled = true, uri = "pg-functions://postgres/identity/before_user_created"`), `supabase/seed.sql` (allowlist `owner@pawpin.test`, `e2e@pawpin.test`)
+- Modify: `supabase/config.toml` (`[auth.hook.before_user_created] enabled = true, uri = "pg-functions://postgres/identity/before_user_created"`), `supabase/seed.sql` (allowlist `owner@meoofy.test`, `e2e@meoofy.test`)
 - Test: `supabase/tests/database/050_auth_hook.test.sql`
 
 **Interfaces:**
 - Produces: the hook returns `'{}'::jsonb` for an allowlisted email (case-insensitive). Otherwise it returns `{"error":{"http_code":403,"message":"This pilot is invite-only"}}` and inserts the email into `identity.signup_rejections`.
 
 - [ ] **Step 1: Write the failing pgTAP tests:**
-  - `identity.before_user_created('{"user":{"email":"Owner@Pawpin.test"}}')` returns `{}`.
+  - `identity.before_user_created('{"user":{"email":"Owner@Meoofy.test"}}')` returns `{}`.
   - An unknown relay address `abc@privaterelay.appleid.com` returns the 403 error and is logged in `signup_rejections`.
   - `authenticated` cannot select `identity.pilot_allowlist` or `identity.signup_rejections` (`42501`).
 - [ ] **Step 2: Run `pnpm test:db` and confirm it fails.**
@@ -407,7 +407,7 @@ if entitlements.pet_limit(tier) is not null and (select count(*) from registry.p
     - `registry.claim_storage_deletions(max int) returns setof registry.storage_deletions`: `for update skip locked`, increments `attempts`.
     - `registry.complete_storage_deletions(done bigint[], failed jsonb)`.
   - Cron job `storage-cleanup` (`*/5 * * * *`) calls the function via `net.http_post`, with the URL and service key read from `vault.decrypted_secrets` (`project_url`, `service_role_key`).
-  - `delete-account` accepts POST with the caller's JWT and returns 204. Without a valid JWT it returns 401 `{"error":"PAWPIN:UNAUTHENTICATED"}`.
+  - `delete-account` accepts POST with the caller's JWT and returns 204. Without a valid JWT it returns 401 `{"error":"MEOOFY:UNAUTHENTICATED"}`.
 
 - [ ] **Step 1: Write the failing Deno tests:**
   - `deleteAccount` with 2500 fake paths calls `removePaths` 3 times (1000/1000/500), then `recordAudit('account.deleted')`, then `deleteUser(uid)`, in that order.
@@ -428,13 +428,13 @@ if entitlements.pet_limit(tier) is not null and (select count(*) from registry.p
 
 **Files:**
 - Create: `packages/api/package.json`, `tsconfig.json`, `vitest.config.ts`, `src/client.ts`, `src/database.types.ts` (generated: `supabase gen types typescript --local --schema api,registry,identity,entitlements > …`), `src/types.ts`, `src/auth.ts`, `src/profile.ts`, `src/entitlements.ts`, `src/index.ts`, `test/helpers.ts`, `test/auth.int.test.ts`, `test/profile.int.test.ts`
-- Modify: root `package.json` (`gen:types`, `test:api` = `pnpm --filter @pawpin/api test`)
+- Modify: root `package.json` (`gen:types`, `test:api` = `pnpm --filter @meoofy/api test`)
 
 **Interfaces:**
 - Consumes: `parseAppError`, `AppError`, `petLimit`, `Tier`, `OnboardingPath`, `displayNameSchema` (core). DB functions from Tasks 4–9.
 - Produces:
-  - `createPawpinClient(opts: { url: string; anonKey: string; storage?: { getItem(k: string): Promise<string | null>; setItem(k: string, v: string): Promise<void>; removeItem(k: string): Promise<void> } }): PawpinClient`
-  - `type PawpinClient = SupabaseClient<Database>`
+  - `createMeoofyClient(opts: { url: string; anonKey: string; storage?: { getItem(k: string): Promise<string | null>; setItem(k: string, v: string): Promise<void>; removeItem(k: string): Promise<void> } }): MeoofyClient`
+  - `type MeoofyClient = SupabaseClient<Database>`
   - `sendEmailCode(c, email: string): Promise<void>`
   - `verifyEmailCode(c, email: string, code: string): Promise<void>`
   - `signInWithAppleIdToken(c, idToken: string, nonce: string): Promise<void>`
@@ -445,11 +445,11 @@ if entitlements.pet_limit(tier) is not null and (select count(*) from registry.p
   - `updateDisplayName(c, name: string): Promise<void>`
   - `getEntitlement(c): Promise<{ tier: Tier; petLimit: number | null; activePets: number }>`
   - Every exported function rejects with `AppError` only. Raw supabase errors never escape.
-  - Test helper `test/helpers.ts`: `newOwner(email?: string): Promise<{ client: PawpinClient; userId: string; email: string }>`. It allowlists the email, creates the user with the admin API (password, `email_confirm: true`), and signs in with the password. It also exports `admin` (service-role client) and `latestEmailCode(email): Promise<string>`, which reads Mailpit at `http://127.0.0.1:54324/api/v1/messages`.
+  - Test helper `test/helpers.ts`: `newOwner(email?: string): Promise<{ client: MeoofyClient; userId: string; email: string }>`. It allowlists the email, creates the user with the admin API (password, `email_confirm: true`), and signs in with the password. It also exports `admin` (service-role client) and `latestEmailCode(email): Promise<string>`, which reads Mailpit at `http://127.0.0.1:54324/api/v1/messages`.
 
 - [ ] **Step 1: Write the failing integration tests:**
   - `sendEmailCode` + `latestEmailCode` + `verifyEmailCode` signs in an allowlisted user. A wrong code rejects with `AppError` code `UNAUTHENTICATED`.
-  - `sendEmailCode('stranger@pawpin.test')` then verifying rejects with `INVITE_ONLY`.
+  - `sendEmailCode('stranger@meoofy.test')` then verifying rejects with `INVITE_ONLY`.
   - `updateDisplayName('  Alex ')` → `getProfile().displayName === 'Alex'`. `updateDisplayName('')` rejects `VALIDATION` without a network call (validated with `displayNameSchema` first).
   - `getEntitlement()` returns `{ tier: 'free', petLimit: 3, activePets: 0 }`.
   - `expired session maps to UNAUTHENTICATED`: after `admin.auth.admin.signOut(jwt)` (or deleting the user), `getProfile()` rejects with code `UNAUTHENTICATED`.
@@ -536,9 +536,9 @@ expect(cardRoles.tip).toEqual({ from: '#D9F5EA', to: '#EAFAF3', title: '#1C7055'
 expect(flowTints.owner.tint).toBe('#E6F2FF'); expect(type.headline).toMatchObject({ fontSize: 28, lineHeight: 39 })
 ```
 
-- [ ] **Step 2: Run `pnpm --filter @pawpin/ui test` and confirm it fails.**
+- [ ] **Step 2: Run `pnpm --filter @meoofy/ui test` and confirm it fails.**
 - [ ] **Step 3: Implement `build-tokens.ts`** (reads the JSON and writes `tokens.ts` with a `// generated` header; script `gen:tokens`). Hand-write `roles.ts` and `type.ts`.
-- [ ] **Step 4: Run `pnpm gen:tokens && pnpm --filter @pawpin/ui test` and confirm it passes.**
+- [ ] **Step 4: Run `pnpm gen:tokens && pnpm --filter @meoofy/ui test` and confirm it passes.**
 - [ ] **Step 5: Commit** — `feat(ui): design tokens, colour roles and type scale`
 
 ---
@@ -587,7 +587,7 @@ expect(flowTints.owner.tint).toBe('#E6F2FF'); expect(type.headline).toMatchObjec
 **Interfaces:**
 - Consumes: `tools/stickers/stickers.py` (`STICKERS` list of `(name, fn, usage)`; each `fn()` returns JSX-flavoured markup whose inner `<path …/>` elements are standard SVG).
 - Produces:
-  - `STICKER_NAMES = ['dog','cat','sleepy-moon','cloud','paw-star','sparkle','heart-paw','paw-pin','privacy-shield','love-letter','pet-tag','shooting-star','rainbow','bone'] as const` and `type StickerName`.
+  - `STICKER_NAMES = ['dog','cat','sleepy-moon','cloud','paw-star','sparkle','heart-paw','meoofy','privacy-shield','love-letter','pet-tag','shooting-star','rainbow','bone'] as const` and `type StickerName`.
   - `Sticker({ name: StickerName, size?: number = 64, rotate?: number = 0 })`: always hidden from accessibility.
   - `PetPortrait({ species: Species, flow: Flow, width: number, height: number, label?: string })`: diagonal flow gradient, white halo, dog or cat sticker at `0.6 × height` (`0.72` when height < 160), one sparkle, optional label pill.
 
@@ -598,7 +598,7 @@ expect(flowTints.owner.tint).toBe('#E6F2FF'); expect(type.headline).toMatchObjec
   - `PetPortrait species="cat" label="Luna photo"` renders the label text and a `cat` sticker.
 - [ ] **Step 2: Run the tests and confirm they fail.**
 - [ ] **Step 3: Implement the generator.** `export_svgs.py` extracts the inner markup from `svg(...)` output and wraps it as `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">`. It inserts a shadow copy of the first (die-cut outline) path, with `fill="#53749A" fill-opacity="0.18" stroke="none" transform="translate(0 6)"`, before the outline. It writes `<kebab-name>.svg`. Then run svgr. `Sticker` maps names to the generated components.
-- [ ] **Step 4: Run `python3 tools/stickers/export_svgs.py && pnpm gen:stickers && pnpm --filter @pawpin/ui test` and confirm it passes.**
+- [ ] **Step 4: Run `python3 tools/stickers/export_svgs.py && pnpm gen:stickers && pnpm --filter @meoofy/ui test` and confirm it passes.**
 - [ ] **Step 5: Commit** — `feat(ui): die-cut sticker components and pet portraits`
 
 ---
@@ -643,13 +643,13 @@ expect(resolveMotion('moonrise', false)).toMatchObject({ duration: 360, easing: 
 - Test: `apps/app/src/navigation/entry.test.ts`, `src/layout/layoutMode.test.ts`, `src/features/placeholders/placeholder.test.tsx`
 
 **Interfaces:**
-- Consumes: `createPawpinClient`, `getProfile` (api); `ScreenShell`, `TabBar`, `WebNav` (ui).
+- Consumes: `createMeoofyClient`, `getProfile` (api); `ScreenShell`, `TabBar`, `WebNav` (ui).
 - Produces:
   - `env = { supabaseUrl: string; supabaseAnonKey: string; sentryDsn: string | null; e2e: boolean; flags: { reportMissing: false } }`, read from `EXPO_PUBLIC_*`.
-  - `local`: `get/set/remove` for keys `pawpin.onboardingSeen`, `pawpin.onboardingPath`, `pawpin.petDraft` (AsyncStorage).
+  - `local`: `get/set/remove` for keys `meoofy.onboardingSeen`, `meoofy.onboardingPath`, `meoofy.petDraft` (AsyncStorage).
   - `resolveEntryRoute(s: { onboardingSeen: boolean; signedIn: boolean; displayName: string | null; pendingOnboardingPath: OnboardingPath | null }): '/(onboarding)/welcome' | '/(auth)/sign-in' | '/(auth)/your-name' | '/(tabs)/home' | '/(tabs)/find'`. A signed-in, named user whose pending path is `finder` lands on Find.
   - `layoutModeFor(width: number): 'mobile' | 'mobile-centered' | 'desktop'`
-  - `SessionProvider` exposing `useSession(): { client: PawpinClient; signedIn: boolean; userId: string | null }`. The session persists with `expo-secure-store` on iOS and the default on web.
+  - `SessionProvider` exposing `useSession(): { client: MeoofyClient; signedIn: boolean; userId: string | null }`. The session persists with `expo-secure-store` on iOS and the default on web.
   - `QueryProvider`: TanStack Query with persistence (AsyncStorage persister on native, `localStorage` on web) and the retry policy `retry: (n, e) => n < 3 && parseAppError(e).retryable`.
   - Inter fonts loaded in the root layout.
   - Desktop mode renders `WebNav`; other modes render `TabBar`.
@@ -666,9 +666,9 @@ expect(layoutModeFor(767)).toBe('mobile'); expect(layoutModeFor(768)).toBe('mobi
 ```
 
   Placeholder test: the Find tab renders the copy "Scanning arrives in the next pilot build" and a `finder`-tinted `ScreenShell`.
-- [ ] **Step 2: Run `pnpm --filter @pawpin/app test` and confirm it fails.**
+- [ ] **Step 2: Run `pnpm --filter @meoofy/app test` and confirm it fails.**
 - [ ] **Step 3: Implement the shell and modules.**
-- [ ] **Step 4: Run the tests and confirm they pass. Then run `pnpm --filter @pawpin/app exec expo start --web` and check that the Find tab renders at 390 px and 1440 px.**
+- [ ] **Step 4: Run the tests and confirm they pass. Then run `pnpm --filter @meoofy/app exec expo start --web` and check that the Find tab renders at 390 px and 1440 px.**
 - [ ] **Step 5: Commit** — `feat(app): Expo shell, entry routing, layout modes and providers`
 
 ---
@@ -680,19 +680,19 @@ expect(layoutModeFor(767)).toBe('mobile'); expect(layoutModeFor(768)).toBe('mobi
 - Test: `apps/app/src/features/onboarding/onboarding.test.tsx`
 
 **Interfaces:**
-- Consumes: `local`, `Sticker`, `Peel`, `Float`, `Confetti`, primitives, `completeOnboarding` via `useProfile` (Task 19 defines the hook; until then call `completeOnboarding` from `@pawpin/api` through `useSession().client`).
-- Produces: completing O02 sets `pawpin.onboardingSeen = 'true'`. Choosing a card in O01 stores `pawpin.onboardingPath`. The finder path then routes to `/(tabs)/find` after sign-in. After the first sign-in, the app calls `completeOnboarding(storedPath)` once and removes the key.
+- Consumes: `local`, `Sticker`, `Peel`, `Float`, `Confetti`, primitives, `completeOnboarding` via `useProfile` (Task 19 defines the hook; until then call `completeOnboarding` from `@meoofy/api` through `useSession().client`).
+- Produces: completing O02 sets `meoofy.onboardingSeen = 'true'`. Choosing a card in O01 stores `meoofy.onboardingPath`. The finder path then routes to `/(tabs)/find` after sign-in. After the first sign-in, the app calls `completeOnboarding(storedPath)` once and removes the key.
 
 - [ ] **Step 1: Write the failing tests:**
   - O00 renders "Every pet deserves a way home." and the buttons "Get started" and "I found a pet".
-  - Choosing "Help a found pet" then "Continue" stores `pawpin.onboardingPath = 'finder'`.
+  - Choosing "Help a found pet" then "Continue" stores `meoofy.onboardingPath = 'finder'`.
   - "Protect my pet" is selected by default and has `accessibilityState.selected` true.
-  - O02 lists the three promises exactly: "Owners choose what finders see.", "Contact stays inside PawPin.", "No account needed to scan."
+  - O02 lists the three promises exactly: "Owners choose what finders see.", "Contact stays inside Meoofy.", "No account needed to scan."
   - O03 renders "You’re all set, {name}." with the profile name.
   - Hero stickers are hidden from accessibility.
 - [ ] **Step 2: Run the tests and confirm they fail.**
 - [ ] **Step 3: Implement the screens to match board 08.**
-  - Hero compositions: Night garden (dog, cat, sleepy moon), Two paths (dog, paw pin, heart paw), Safe orbit (privacy shield, love letter, sleepy moon), Celebration (rainbow, pet tag, shooting star, heart paw + confetti).
+  - Hero compositions: Night garden (dog, cat, sleepy moon), Two paths (dog, meoofy, heart paw), Safe orbit (privacy shield, love letter, sleepy moon), Celebration (rainbow, pet tag, shooting star, heart paw + confetti).
   - Layout: status/top bar 48+48, hero 268, copy block 128, and actions 48+48 pinned to the bottom.
   - Steps O00 → O01 → O02 use the `moonrise` transition from Task 15.
 - [ ] **Step 4: Run the tests and confirm they pass.**
@@ -818,7 +818,7 @@ expect(layoutModeFor(767)).toBe('mobile'); expect(layoutModeFor(768)).toBe('mobi
 - Test: `apps/app/src/offline/offline.test.tsx`
 
 **Interfaces:**
-- Consumes: `local` (`pawpin.petDraft`).
+- Consumes: `local` (`meoofy.petDraft`).
 - Produces:
   - `useOnline(): boolean`
   - `saveDraft(d: Partial<{ name: string; species: Species; breed: string; years: string; months: string }>): Promise<void>`
@@ -867,12 +867,12 @@ expect(layoutModeFor(767)).toBe('mobile'); expect(layoutModeFor(768)).toBe('mobi
 - Modify: root `package.json` (`test:e2e:web`, `test:e2e:ios`; root `verify` runs `test:e2e:web`; `test:e2e:ios` runs in Task 25's CI notes and before each TestFlight build)
 
 **Interfaces:**
-- Consumes: the `env.e2e` "Use test photo" seam (Task 21), which loads the bundled fixtures. `e2e@pawpin.test` comes from the seed allowlist (Task 8).
+- Consumes: the `env.e2e` "Use test photo" seam (Task 21), which loads the bundled fixtures. `e2e@meoofy.test` comes from the seed allowlist (Task 8).
 - Produces: `latestCode(email: string): Promise<string>`, which polls Mailpit for up to 10 s and returns the 6-digit code.
 
 - [ ] **Step 1: Write the Playwright spec `registry.spec.ts`** covering the steps below, and the matching Maestro flow:
   1. Onboarding → "Get started" → "Continue" → "Sounds good".
-  2. Email `e2e+<timestamp>@pawpin.test`. The test inserts that address into the allowlist via the service role in `beforeAll`.
+  2. Email `e2e+<timestamp>@meoofy.test`. The test inserts that address into the allowlist via the service role in `beforeAll`.
   3. Code from Mailpit → name "Alex" → all set → Home shows "Your circle starts here".
   4. Add pet Milo (dog, Golden retriever, 3 years) → photos: front/side/markings via "Use test photo" → three ready tiles.
   5. Profile shows "Discovery Off".
@@ -889,7 +889,7 @@ expect(layoutModeFor(767)).toBe('mobile'); expect(layoutModeFor(768)).toBe('mobi
 
 **Files:**
 - Create: `apps/app/eas.json` (profiles: `development` with `developmentClient: true` and `EXPO_PUBLIC_E2E=1`; `preview` internal; `production` with `autoIncrement: true` and **no** `EXPO_PUBLIC_E2E`), `.github/workflows/verify.yml` (ubuntu: setup pnpm 11 + Node 24 + Deno, `supabase start`, `pnpm verify`), `tools/setup/pilot-setup.sh` (generated with the `wizard` skill), `README.md` (local dev, verify, deploy commands)
-- Modify: `apps/app/app.config.ts` (`ios.bundleIdentifier: 'com.pawpin.pilot'`, `ios.usesAppleSignIn: true`, camera/photo-library usage strings, `web.output: 'static'`)
+- Modify: `apps/app/app.config.ts` (`ios.bundleIdentifier: 'com.meoofy.pilot'`, `ios.usesAppleSignIn: true`, camera/photo-library usage strings, `web.output: 'static'`)
 - Test: `apps/app/src/config.test.ts`
 
 **Interfaces:**
@@ -912,8 +912,8 @@ expect(layoutModeFor(767)).toBe('mobile'); expect(layoutModeFor(768)).toBe('mobi
 
 - [ ] **Step 1: Write the failing test `config.test.ts`:**
   - Loading `eas.json` gives `build.production.env.EXPO_PUBLIC_E2E` undefined.
-  - `app.config.ts` resolves `ios.bundleIdentifier === 'com.pawpin.pilot'`, `ios.usesAppleSignIn === true`, and a non-empty `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription`.
-- [ ] **Step 2: Run `pnpm --filter @pawpin/app test config` and confirm it fails.**
+  - `app.config.ts` resolves `ios.bundleIdentifier === 'com.meoofy.pilot'`, `ios.usesAppleSignIn === true`, and a non-empty `NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription`.
+- [ ] **Step 2: Run `pnpm --filter @meoofy/app test config` and confirm it fails.**
 - [ ] **Step 3: Implement the config, the workflow, the wizard (invoke the `wizard` skill with the step list above) and the README.**
 - [ ] **Step 4: Run `pnpm verify` and confirm it passes end to end. Then run `bash -n tools/setup/pilot-setup.sh` and confirm the wizard parses.**
 - [ ] **Step 5: Commit** — `chore(delivery): EAS profiles, CI workflow, setup wizard and README`

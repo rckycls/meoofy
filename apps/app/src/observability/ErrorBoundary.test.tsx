@@ -3,13 +3,13 @@ import * as Sentry from '@sentry/react-native'
 import { fireEvent, render, screen } from '@testing-library/react-native'
 import { Slot } from 'expo-router'
 import { renderRouter } from 'expo-router/testing-library'
-import { flowTints } from '@pawpin/ui'
+import { flowTints } from '@meoofy/ui'
 
 import { ErrorBoundary } from './ErrorBoundary'
 import { errorCopy } from './copy'
 
 // The error text is what a person must never see: it carries a name, an email and a file path.
-const SECRET = 'duplicate key for Milo, owner alex@example.com, file:///Users/alex/pawpin/pet.jpg'
+const SECRET = 'duplicate key for Milo, owner alex@example.com, file:///Users/alex/meoofy/pet.jpg'
 
 // Decorative layers (gradient, glows) are hidden from assistive tech.
 const hidden = { includeHiddenElements: true } as const

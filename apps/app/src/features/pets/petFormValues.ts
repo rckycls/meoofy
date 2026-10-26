@@ -1,11 +1,11 @@
-import type { Pet } from '@pawpin/api'
+import type { Pet } from '@meoofy/api'
 import {
   codePointLength,
   petInputSchema,
   type PetInput,
   type PetPatch,
   type Species,
-} from '@pawpin/core'
+} from '@meoofy/core'
 
 import { parseAge, type AgeErrors } from './AgeInput'
 import { petsCopy as copy } from './copy'

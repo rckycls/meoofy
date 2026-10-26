@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
-import { parseAppError, petLimit, speciesSchema, type AppError, type Species } from '@pawpin/core'
+import { parseAppError, petLimit, speciesSchema, type AppError, type Species } from '@meoofy/core'
 import {
   Button,
   Card,
@@ -14,7 +14,7 @@ import {
   space,
   textStyle,
   type,
-} from '@pawpin/ui'
+} from '@meoofy/ui'
 
 import { ContentColumn } from '../../layout/ContentColumn'
 import { OfflineBanner } from '../../offline/OfflineBanner'

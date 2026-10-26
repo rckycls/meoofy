@@ -1,4 +1,4 @@
-"""Die-cut sticker artwork for PawPin, as 120x120 SVG markup.
+"""Die-cut sticker artwork for Meoofy, as 120x120 SVG markup.
 
 Every sticker = one white "die-cut" outline path (union of the silhouette
 subpaths, stroked white) followed by the colored art paths.
@@ -176,7 +176,7 @@ def heart_paw():
     )
 
 
-def paw_pin():
+def meoofy():
     pin = "M60 110 C60 110 22 74 22 48 C22 27 39 10 60 10 C81 10 98 27 98 48 C98 74 60 110 60 110 Z"
     return svg(
         outline(pin)
@@ -280,7 +280,7 @@ STICKERS = [
     ("Paw star", paw_star, "Milestones, first pet"),
     ("Sparkle", sparkle, "Accent. Pairs with any"),
     ("Heart paw", heart_paw, "Reunions, thank-yous"),
-    ("Paw pin", paw_pin, "Brand, nearby alerts"),
+    ("Meoofy", meoofy, "Brand, nearby alerts"),
     ("Privacy shield", shield, "Privacy promises"),
     ("Love letter", letter, "Secure messages"),
     ("Pet tag", pet_tag, "Scan a tag, profiles"),

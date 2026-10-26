@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
-import { ScreenShell, StepDots, colors, space, textStyle, type } from '@pawpin/ui'
+import { ScreenShell, StepDots, colors, space, textStyle, type } from '@meoofy/ui'
 
 import { ContentColumn } from '../../layout/ContentColumn'
 import { onboardingCopy } from './copy'

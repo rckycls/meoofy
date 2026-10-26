@@ -1,4 +1,4 @@
-import { AppError, type OnboardingPath, type Tier } from '@pawpin/core'
+import { AppError, type OnboardingPath, type Tier } from '@meoofy/core'
 import type { Database } from './database.types'
 
 type Views = Database['api']['Views']

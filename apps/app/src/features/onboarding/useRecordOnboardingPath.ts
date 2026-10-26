@@ -1,23 +1,23 @@
 import { useEffect, useState } from 'react'
-import { completeOnboarding, type PawpinClient } from '@pawpin/api'
-import { onboardingPathSchema, type OnboardingPath } from '@pawpin/core'
+import { completeOnboarding, type MeoofyClient } from '@meoofy/api'
+import { onboardingPathSchema, type OnboardingPath } from '@meoofy/core'
 
 import { useSession } from '../../state/SessionProvider'
 import { local } from '../../storage/local'
 
 async function readStoredPath(): Promise<OnboardingPath | null> {
   try {
-    const parsed = onboardingPathSchema.safeParse(await local.get('pawpin.onboardingPath'))
+    const parsed = onboardingPathSchema.safeParse(await local.get('meoofy.onboardingPath'))
     return parsed.success ? parsed.data : null
   } catch {
     return null
   }
 }
 
-async function sendPath(client: PawpinClient, path: OnboardingPath): Promise<void> {
+async function sendPath(client: MeoofyClient, path: OnboardingPath): Promise<void> {
   try {
     await completeOnboarding(client, path)
-    await local.remove('pawpin.onboardingPath')
+    await local.remove('meoofy.onboardingPath')
   } catch {
     // Offline, or the session ended. The key stays, so the next screen shown
     // after sign-in tries again; the server keeps the first path it is given.
@@ -35,7 +35,7 @@ type Run = {
 // one run, so the path is sent once.
 let current: Run | null = null
 
-function start(client: PawpinClient): Run {
+function start(client: MeoofyClient): Run {
   const path = readStoredPath()
   const done = path.then((stored) => (stored === null ? undefined : sendPath(client, stored)))
   void done.finally(() => {

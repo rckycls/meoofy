@@ -1,4 +1,4 @@
-import type { PawpinClient } from '@pawpin/api'
+import type { MeoofyClient } from '@meoofy/api'
 
 type FakeSession = { user: { id: string; email?: string } } | null
 type AuthListener = (event: string, session: FakeSession) => void
@@ -6,7 +6,7 @@ type AuthListener = (event: string, session: FakeSession) => void
 /**
  * A stand-in for the Supabase client covering what the session layer uses:
  * auth events, local sign-out and the auto-refresh switches. Data calls are
- * mocked at the `@pawpin/api` function level in the tests that need them.
+ * mocked at the `@meoofy/api` function level in the tests that need them.
  *
  * `initialSession: 'held'` keeps INITIAL_SESSION back until `releaseInitialSession()`, the way
  * supabase-js holds it while it retries the refresh of an expired session (about 25 s offline).
@@ -61,7 +61,7 @@ export function fakeClient({
   }
 
   return {
-    client: { auth } as unknown as PawpinClient,
+    client: { auth } as unknown as MeoofyClient,
     auth,
     /** Simulates a sign-in finishing (for example from the email-code screen). */
     signIn(id: string, signInEmail?: string) {

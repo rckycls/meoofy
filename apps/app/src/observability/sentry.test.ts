@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react-native'
-import { AppError, type ErrorCode } from '@pawpin/core'
+import { AppError, type ErrorCode } from '@meoofy/core'
 
 import { scrubBreadcrumb } from './scrub'
 import { initSentry, reportError, reportHandledError, scrubEvent } from './sentry'
@@ -34,7 +34,7 @@ describe('scrubEvent', () => {
 
   it('removes the request', () => {
     const scrubbed = scrubEvent({
-      request: { url: 'https://pawpin.test/pets', headers: { cookie: 'a=b' } },
+      request: { url: 'https://meoofy.test/pets', headers: { cookie: 'a=b' } },
       message: 'boom',
     })
 

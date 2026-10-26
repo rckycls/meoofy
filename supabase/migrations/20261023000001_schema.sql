@@ -1,4 +1,4 @@
--- PawPin module schemas, enums, tables, triggers, shared helpers and grants (spec §5, §6).
+-- Meoofy module schemas, enums, tables, triggers, shared helpers and grants (spec §5, §6).
 --
 -- Clients only ever read: `authenticated` gets SELECT on the owner tables (filtered by the
 -- row-level security policies in 20261023000002_rls.sql) and `anon` gets nothing. Every write
@@ -22,7 +22,7 @@ create extension if not exists citext with schema extensions;
 -- Shared helpers
 -- ---------------------------------------------------------------------------
 
--- Raises `PAWPIN:<code>`, the stable error prefix packages/core parses into an AppError.
+-- Raises `MEOOFY:<code>`, the stable error prefix packages/core parses into an AppError.
 -- Only the server codes the app knows are accepted; anything else is a programming error.
 create function internal.fail(code text, detail text default null)
 returns void
@@ -39,9 +39,9 @@ begin
   end if;
 
   if fail.detail is null then
-    raise exception using message = 'PAWPIN:' || code, errcode = 'P0001';
+    raise exception using message = 'MEOOFY:' || code, errcode = 'P0001';
   end if;
-  raise exception using message = 'PAWPIN:' || code, detail = fail.detail, errcode = 'P0001';
+  raise exception using message = 'MEOOFY:' || code, detail = fail.detail, errcode = 'P0001';
 end
 $$;
 

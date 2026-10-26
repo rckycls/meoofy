@@ -146,36 +146,36 @@ select policies_are('registry', 'storage_deletions', array[]::name[]);
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  perform set_config('pawpin.a', tests.create_user('a@pawpin.test',
+  perform set_config('meoofy.a', tests.create_user('a@meoofy.test',
     '{"given_name": "  Alex  ", "full_name": "Alex Rivera"}')::text, true);
-  perform set_config('pawpin.b', tests.create_user('b@pawpin.test')::text, true);
-  perform tests.create_user('name-1@pawpin.test', '{"full_name": " Sam Lee "}');
-  perform tests.create_user('name-2@pawpin.test', '{"given_name": "   ", "full_name": "Jo"}');
-  perform tests.create_user('name-3@pawpin.test',
+  perform set_config('meoofy.b', tests.create_user('b@meoofy.test')::text, true);
+  perform tests.create_user('name-1@meoofy.test', '{"full_name": " Sam Lee "}');
+  perform tests.create_user('name-2@meoofy.test', '{"given_name": "   ", "full_name": "Jo"}');
+  perform tests.create_user('name-3@meoofy.test',
     jsonb_build_object('given_name', repeat('🐶', 45)));
-  perform tests.create_user('name-4@pawpin.test',
+  perform tests.create_user('name-4@meoofy.test',
     jsonb_build_object('given_name', repeat('a', 39) || ' bcd'));
 end
 $$;
 
 select results_eq(
-  $$ select (select count(*) from identity.profiles where id = current_setting('pawpin.b')::uuid)::int,
+  $$ select (select count(*) from identity.profiles where id = current_setting('meoofy.b')::uuid)::int,
             (select count(*) from entitlements.accounts
-              where owner_id = current_setting('pawpin.b')::uuid and tier = 'free')::int $$,
+              where owner_id = current_setting('meoofy.b')::uuid and tier = 'free')::int $$,
   $$ values (1, 1) $$,
   'a new auth user gets one profile row and one free account row'
 );
 
 select results_eq(
   $$ select p.display_name from identity.profiles p join auth.users u on u.id = p.id
-      where u.email in ('a@pawpin.test', 'b@pawpin.test') order by u.email $$,
+      where u.email in ('a@meoofy.test', 'b@meoofy.test') order by u.email $$,
   $$ values ('Alex'), ('') $$,
   'display name prefers given_name (trimmed) and falls back to an empty string'
 );
 
 select results_eq(
   $$ select p.display_name from identity.profiles p join auth.users u on u.id = p.id
-      where u.email like 'name-%@pawpin.test' order by u.email $$,
+      where u.email like 'name-%@meoofy.test' order by u.email $$,
   $$ values ('Sam Lee'), ('Jo'), (repeat('🐶', 40)), (repeat('a', 39)) $$,
   'display name falls back to full_name and is trimmed to 40 code points'
 );
@@ -185,8 +185,8 @@ select results_eq(
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  a uuid := current_setting('pawpin.a')::uuid;
-  b uuid := current_setting('pawpin.b')::uuid;
+  a uuid := current_setting('meoofy.a')::uuid;
+  b uuid := current_setting('meoofy.b')::uuid;
   event_id bigint;
 begin
   insert into registry.pets (id, owner_id, name, species)
@@ -199,25 +199,25 @@ begin
   insert into audit.events (actor_id, action, subject_type, subject_id, metadata)
   values (a, 'pet.created', 'pet', 'a0000000-0000-4000-8000-000000000001', '{"species": "dog"}')
   returning id into event_id;
-  perform set_config('pawpin.event', event_id::text, true);
+  perform set_config('meoofy.event', event_id::text, true);
 end
 $$;
 
-select tests.authenticate_as(current_setting('pawpin.b')::uuid);
+select tests.authenticate_as(current_setting('meoofy.b')::uuid);
 
 select is(
-  (select count(*)::int from registry.pets where owner_id = current_setting('pawpin.a')::uuid),
+  (select count(*)::int from registry.pets where owner_id = current_setting('meoofy.a')::uuid),
   0, 'user B sees none of user A''s pets');
 select results_eq($$ select name from registry.pets $$, $$ values ('Rex') $$,
   'user B sees only their own pets');
 select is_empty($$ select 1 from registry.pet_photos $$, 'user B sees none of user A''s photos');
 select results_eq($$ select id from identity.profiles $$,
-  $$ values (current_setting('pawpin.b')::uuid) $$, 'user B sees only their own profile');
+  $$ values (current_setting('meoofy.b')::uuid) $$, 'user B sees only their own profile');
 select results_eq($$ select owner_id from entitlements.accounts $$,
-  $$ values (current_setting('pawpin.b')::uuid) $$, 'user B sees only their own account');
+  $$ values (current_setting('meoofy.b')::uuid) $$, 'user B sees only their own account');
 select is_empty($$ select 1 from audit.events $$, 'user B sees none of user A''s audit events');
 
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select results_eq($$ select name from registry.pets $$, $$ values ('Milo') $$,
   'user A sees their own pet');
@@ -226,7 +226,7 @@ select is((select count(*)::int from audit.events), 1, 'user A sees their own au
 
 select throws_ok(
   $$ insert into registry.pets (id, owner_id, name, species)
-     values (gen_random_uuid(), current_setting('pawpin.a')::uuid, 'Nope', 'cat') $$,
+     values (gen_random_uuid(), current_setting('meoofy.a')::uuid, 'Nope', 'cat') $$,
   '42501', null, 'authenticated cannot insert into registry.pets');
 select throws_ok($$ update registry.pets set name = 'Hacked' $$, '42501', null,
   'authenticated cannot update registry.pets');
@@ -262,41 +262,41 @@ select is((select provolatile from pg_proc where oid = 'registry.limits()'::regp
 select lives_ok(
   format($$ insert into registry.pets (id, owner_id, name, species, breed, age_months)
             values (gen_random_uuid(), %L, repeat('🐶', %s), 'dog', repeat('b', %s), %s) $$,
-         current_setting('pawpin.b'), registry.limits() ->> 'petNameMax',
+         current_setting('meoofy.b'), registry.limits() ->> 'petNameMax',
          registry.limits() ->> 'breedMax', registry.limits() ->> 'ageMonthsMax'),
   'pets accept a name, breed and age exactly at the limits');
 select throws_ok(
   format($$ insert into registry.pets (id, owner_id, name, species)
             values (gen_random_uuid(), %L, repeat('🐶', %s + 1), 'dog') $$,
-         current_setting('pawpin.b'), registry.limits() ->> 'petNameMax'),
+         current_setting('meoofy.b'), registry.limits() ->> 'petNameMax'),
   '23514', null, 'a pet name over the limit violates a check');
 select throws_ok(
   format($$ insert into registry.pets (id, owner_id, name, species)
-            values (gen_random_uuid(), %L, '', 'dog') $$, current_setting('pawpin.b')),
+            values (gen_random_uuid(), %L, '', 'dog') $$, current_setting('meoofy.b')),
   '23514', null, 'an empty pet name violates a check');
 select throws_ok(
   format($$ insert into registry.pets (id, owner_id, name, species, breed)
             values (gen_random_uuid(), %L, 'Pip', 'dog', repeat('b', %s + 1)) $$,
-         current_setting('pawpin.b'), registry.limits() ->> 'breedMax'),
+         current_setting('meoofy.b'), registry.limits() ->> 'breedMax'),
   '23514', null, 'a breed over the limit violates a check');
 select throws_ok(
   format($$ insert into registry.pets (id, owner_id, name, species, age_months)
             values (gen_random_uuid(), %L, 'Pip', 'dog', %s + 1) $$,
-         current_setting('pawpin.b'), registry.limits() ->> 'ageMonthsMax'),
+         current_setting('meoofy.b'), registry.limits() ->> 'ageMonthsMax'),
   '23514', null, 'an age over the limit violates a check');
 select throws_ok(
   format($$ insert into registry.pets (id, owner_id, name, species, age_months)
-            values (gen_random_uuid(), %L, 'Pip', 'dog', -1) $$, current_setting('pawpin.b')),
+            values (gen_random_uuid(), %L, 'Pip', 'dog', -1) $$, current_setting('meoofy.b')),
   '23514', null, 'a negative age violates a check');
 select throws_ok(
   format($$ update identity.profiles set display_name = repeat('n', %s + 1) where id = %L $$,
-         registry.limits() ->> 'displayNameMax', current_setting('pawpin.b')),
+         registry.limits() ->> 'displayNameMax', current_setting('meoofy.b')),
   '23514', null, 'a display name over the limit violates a check');
 select throws_ok(
   format($$ insert into registry.pet_photos (id, pet_id, owner_id, view, storage_path, bytes)
             values (gen_random_uuid(), 'b0000000-0000-4000-8000-000000000001', %L, 'side',
                     'too-big.jpg', %s + 1) $$,
-         current_setting('pawpin.b'), registry.limits() ->> 'photoMaxBytes'),
+         current_setting('meoofy.b'), registry.limits() ->> 'photoMaxBytes'),
   '23514', null, 'a photo over the byte limit violates a check');
 
 -- ---------------------------------------------------------------------------
@@ -305,14 +305,14 @@ select throws_ok(
 select throws_ok(
   format($$ insert into registry.pet_photos (id, pet_id, owner_id, view, storage_path, bytes)
             values (gen_random_uuid(), 'a0000000-0000-4000-8000-000000000001', %L, 'side',
-                    'mismatch.jpg', 1000) $$, current_setting('pawpin.b')),
+                    'mismatch.jpg', 1000) $$, current_setting('meoofy.b')),
   '23503', null, 'a photo cannot belong to a different owner than its pet');
 
 select lives_ok(
   $$ insert into registry.pet_photos (id, pet_id, owner_id, view, storage_path, bytes, width,
                                       height, status, confirmed_at)
      select gen_random_uuid(), 'b0000000-0000-4000-8000-000000000001',
-            current_setting('pawpin.b')::uuid, v, 'ready-' || v || '-' || n || '.jpg', 1000, 1600,
+            current_setting('meoofy.b')::uuid, v, 'ready-' || v || '-' || n || '.jpg', 1000, 1600,
             1200, 'ready', now()
        from (values ('front'::registry.photo_view, 1), ('extra', 1), ('extra', 2)) s(v, n) $$,
   'one ready photo per required view, and several ready extras, are allowed');
@@ -321,11 +321,11 @@ select throws_ok(
                                              width, height, status, confirmed_at)
             values (gen_random_uuid(), 'b0000000-0000-4000-8000-000000000001', %L, 'front',
                     'ready-front-2.jpg', 1000, 1600, 1200, 'ready', now()) $$,
-         current_setting('pawpin.b')),
+         current_setting('meoofy.b')),
   '23505', null, 'a second ready photo for a required view is rejected');
 
 select throws_ok(
-  $$ insert into identity.pilot_allowlist (email) values ('Dup@Pawpin.test'), ('dup@pawpin.test') $$,
+  $$ insert into identity.pilot_allowlist (email) values ('Dup@Meoofy.test'), ('dup@meoofy.test') $$,
   '23505', null, 'allowlist emails are unique regardless of case');
 
 select throws_ok(
@@ -336,37 +336,37 @@ update registry.pets set updated_at = '2000-01-01' where id = 'b0000000-0000-400
 select is((select updated_at from registry.pets where id = 'b0000000-0000-4000-8000-000000000001'),
   now(), 'updating a pet sets updated_at');
 update entitlements.accounts set updated_at = '2000-01-01'
- where owner_id = current_setting('pawpin.b')::uuid;
+ where owner_id = current_setting('meoofy.b')::uuid;
 select is((select updated_at from entitlements.accounts
-            where owner_id = current_setting('pawpin.b')::uuid),
+            where owner_id = current_setting('meoofy.b')::uuid),
   now(), 'updating an account sets updated_at');
 
-delete from auth.users where id = current_setting('pawpin.a')::uuid;
+delete from auth.users where id = current_setting('meoofy.a')::uuid;
 select results_eq(
-  $$ select (select count(*) from identity.profiles where id = current_setting('pawpin.a')::uuid)::int,
+  $$ select (select count(*) from identity.profiles where id = current_setting('meoofy.a')::uuid)::int,
             (select count(*) from entitlements.accounts
-              where owner_id = current_setting('pawpin.a')::uuid)::int,
+              where owner_id = current_setting('meoofy.a')::uuid)::int,
             (select count(*) from registry.pets
-              where owner_id = current_setting('pawpin.a')::uuid)::int,
+              where owner_id = current_setting('meoofy.a')::uuid)::int,
             (select count(*) from registry.pet_photos
-              where owner_id = current_setting('pawpin.a')::uuid)::int $$,
+              where owner_id = current_setting('meoofy.a')::uuid)::int $$,
   $$ values (0, 0, 0, 0) $$,
   'deleting an auth user cascades to their profile, account, pets and photos');
 select results_eq(
   $$ select actor_id, action, subject_type, subject_id, metadata from audit.events
-      where id = current_setting('pawpin.event')::bigint $$,
+      where id = current_setting('meoofy.event')::bigint $$,
   $$ values (null::uuid, 'pet.created', 'pet', null::uuid, '{}'::jsonb) $$,
   'audit events outlive the user with only the action and the time (Ruling 24, spec §10)');
 select is(
   (select count(*)::int from audit.events
-    where current_setting('pawpin.a')::uuid in (actor_id, subject_id)),
+    where current_setting('meoofy.a')::uuid in (actor_id, subject_id)),
   0, 'no audit event references the deleted user any more');
 
 -- ---------------------------------------------------------------------------
 -- internal.fail and internal.trim_ws
 -- ---------------------------------------------------------------------------
-select throws_ok($$ select internal.fail('NOT_OWNER') $$, 'P0001', 'PAWPIN:NOT_OWNER',
-  'internal.fail raises PAWPIN:<code>');
+select throws_ok($$ select internal.fail('NOT_OWNER') $$, 'P0001', 'MEOOFY:NOT_OWNER',
+  'internal.fail raises MEOOFY:<code>');
 
 create function pg_temp.fail_detail() returns text language plpgsql as $$
 declare
@@ -379,7 +379,7 @@ exception when others then
   return sqlerrm || ' / ' || d;
 end
 $$;
-select is(pg_temp.fail_detail(), 'PAWPIN:VALIDATION / breed too long',
+select is(pg_temp.fail_detail(), 'MEOOFY:VALIDATION / breed too long',
   'internal.fail passes the detail through');
 
 select throws_ok($$ select internal.fail('NOT_A_CODE') $$, '22023', null,

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Slot, Stack } from 'expo-router'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import type { PawpinClient } from '@pawpin/api'
+import type { MeoofyClient } from '@meoofy/api'
 
 import { QueryProvider } from '../state/QueryProvider'
 import { SessionProvider } from '../state/SessionProvider'
@@ -12,7 +12,7 @@ const metrics = {
 }
 
 /** The app's providers around `children`, with an injected client. */
-export function TestProviders({ client, children }: { client: PawpinClient; children: ReactNode }) {
+export function TestProviders({ client, children }: { client: MeoofyClient; children: ReactNode }) {
   return (
     <SafeAreaProvider initialMetrics={metrics}>
       <SessionProvider client={client}>
@@ -23,7 +23,7 @@ export function TestProviders({ client, children }: { client: PawpinClient; chil
 }
 
 /** A root `_layout` for `renderRouter`: the app's providers around the routes. */
-export function testRootLayout(client: PawpinClient) {
+export function testRootLayout(client: MeoofyClient) {
   return function TestRootLayout() {
     return (
       <TestProviders client={client}>
@@ -37,7 +37,7 @@ export function testRootLayout(client: PawpinClient) {
  * Like `testRootLayout`, with the app's root `Stack` instead of a `Slot`: a screen pushed over
  * another keeps the one below it, so going back returns to it as it was (the tab that was open).
  */
-export function testRootStackLayout(client: PawpinClient) {
+export function testRootStackLayout(client: MeoofyClient) {
   return function TestRootStackLayout() {
     return (
       <TestProviders client={client}>

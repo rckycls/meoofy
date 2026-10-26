@@ -1,7 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
-import type { PetPhoto } from '@pawpin/api'
-import type { Species } from '@pawpin/core'
-import { Button, PetPortrait, colors, radii, space, textStyle, type } from '@pawpin/ui'
+import type { PetPhoto } from '@meoofy/api'
+import type { Species } from '@meoofy/core'
+import { Button, PetPortrait, colors, radii, space, textStyle, type } from '@meoofy/ui'
 
 import { canRetry, type PhotoProblem, type PhotoState } from '../../data/usePhotoUpload'
 import type { GuidedView } from '../../photo/views'

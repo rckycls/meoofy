@@ -1,13 +1,13 @@
-import { AppError } from '@pawpin/core'
+import { AppError } from '@meoofy/core'
 import { isAuthApiError, isAuthSessionMissingError } from '@supabase/supabase-js'
-import { sessionStoreOf, type PawpinClient } from './client'
+import { sessionStoreOf, type MeoofyClient } from './client'
 import { toAppError } from './errors'
 
 /**
  * Emails a 6-digit sign-in code. Creates the account on first sign-in; the allowlist hook
  * refuses strangers, which rejects with INVITE_ONLY.
  */
-export async function sendEmailCode(c: PawpinClient, email: string): Promise<void> {
+export async function sendEmailCode(c: MeoofyClient, email: string): Promise<void> {
   try {
     const { error } = await c.auth.signInWithOtp({
       email: email.trim(),
@@ -20,7 +20,7 @@ export async function sendEmailCode(c: PawpinClient, email: string): Promise<voi
 }
 
 /** Signs in with the emailed code. A wrong or expired code rejects with UNAUTHENTICATED. */
-export async function verifyEmailCode(c: PawpinClient, email: string, code: string): Promise<void> {
+export async function verifyEmailCode(c: MeoofyClient, email: string, code: string): Promise<void> {
   try {
     const { data, error } = await c.auth.verifyOtp({
       email: email.trim(),
@@ -36,7 +36,7 @@ export async function verifyEmailCode(c: PawpinClient, email: string, code: stri
 
 /** Signs in with the identity token from Sign in with Apple and the raw nonce it was made with. */
 export async function signInWithAppleIdToken(
-  c: PawpinClient,
+  c: MeoofyClient,
   idToken: string,
   nonce: string,
 ): Promise<void> {
@@ -55,7 +55,7 @@ export async function signInWithAppleIdToken(
  * iOS uses `signInWithAppleIdToken` instead. The origin must be one of the project's allowed
  * redirect URLs.
  */
-export async function signInWithAppleWeb(c: PawpinClient): Promise<void> {
+export async function signInWithAppleWeb(c: MeoofyClient): Promise<void> {
   try {
     const origin = (globalThis as { location?: { origin?: string } }).location?.origin
     const { error } = await c.auth.signInWithOAuth({
@@ -84,7 +84,7 @@ export type SessionCheck = 'valid' | 'rejected' | 'unknown'
  * refresh that failed for a moment (supabase-js then sends the anon key) or from clock skew, and
  * signing out then would throw away a refresh token that still works. Never rejects.
  */
-export async function checkSession(c: PawpinClient): Promise<SessionCheck> {
+export async function checkSession(c: MeoofyClient): Promise<SessionCheck> {
   try {
     const { data, error } = await c.auth.refreshSession()
     if (error === null) return data.session === null ? 'unknown' : 'valid'
@@ -117,9 +117,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * session still stored here is one nobody has refused. The app uses this only to show what it
  * saved for that person; requests still go through supabase-js, which refreshes the session or is
  * refused. `null` when nothing usable is stored (or the client was not made by
- * `createPawpinClient`). Never rejects.
+ * `createMeoofyClient`). Never rejects.
  */
-export async function readStoredSession(c: PawpinClient): Promise<StoredSession | null> {
+export async function readStoredSession(c: MeoofyClient): Promise<StoredSession | null> {
   const store = sessionStoreOf(c)
   if (store === undefined) return null
   try {
@@ -140,14 +140,14 @@ export async function readStoredSession(c: PawpinClient): Promise<StoredSession 
   }
 }
 
-const forgetListeners = new WeakMap<PawpinClient, Set<() => void>>()
+const forgetListeners = new WeakMap<MeoofyClient, Set<() => void>>()
 
 /**
  * Calls `listener` when this package forgets the client's session itself (`forgetSession`, or a
  * `signOut` that needed it). supabase-js reports no auth event then, so whoever follows the auth
  * state treats this as a sign-out. Returns the way to stop.
  */
-export function onSessionForgotten(c: PawpinClient, listener: () => void): () => void {
+export function onSessionForgotten(c: MeoofyClient, listener: () => void): () => void {
   const listeners = forgetListeners.get(c) ?? new Set<() => void>()
   forgetListeners.set(c, listeners)
   listeners.add(listener)
@@ -164,7 +164,7 @@ export function onSessionForgotten(c: PawpinClient, listener: () => void): () =>
  * is discarded by supabase-js because the stored session changed under it. Rejects with an
  * AppError only when the storage can't be written.
  */
-export async function forgetSession(c: PawpinClient): Promise<void> {
+export async function forgetSession(c: MeoofyClient): Promise<void> {
   const store = sessionStoreOf(c)
   try {
     await store?.storage.removeItem(store.key)
@@ -184,7 +184,7 @@ export async function forgetSession(c: PawpinClient): Promise<void> {
  * that error and keep the session, which would reopen the next start and refresh into a full
  * session once Auth is back. Then `forgetSession` forgets it.
  */
-export async function signOut(c: PawpinClient): Promise<void> {
+export async function signOut(c: MeoofyClient): Promise<void> {
   const failed = await c.auth.signOut({ scope: 'local' }).then(
     ({ error }) => error !== null,
     () => true,
@@ -192,7 +192,7 @@ export async function signOut(c: PawpinClient): Promise<void> {
   if (failed) await forgetSession(c)
 }
 
-/** The `{"error":"PAWPIN:<CODE>"}` body the Edge Functions answer with, plus the status. */
+/** The `{"error":"MEOOFY:<CODE>"}` body the Edge Functions answer with, plus the status. */
 async function functionFailure(error: Error, response: Response | undefined): Promise<unknown> {
   if (response === undefined) return error
   let message = error.message
@@ -211,7 +211,7 @@ async function functionFailure(error: Error, response: Response | undefined): Pr
  * Deletes the signed-in user's account, photos included, then forgets the session. Without a
  * usable session (expired, or the account is already gone) it rejects with UNAUTHENTICATED.
  */
-export async function deleteAccount(c: PawpinClient): Promise<void> {
+export async function deleteAccount(c: MeoofyClient): Promise<void> {
   try {
     const { error, response } = await c.functions.invoke('delete-account', { method: 'POST' })
     if (error) throw await functionFailure(error, response)

@@ -13,7 +13,7 @@
 -- These mirror petInputSchema in packages/core exactly: trim what String.prototype.trim trims
 -- (internal.trim_ws), count characters rather than bytes (char_length, so 40 emoji are 40), and
 -- take the bounds from the generated registry.limits(). Each returns the value to store or raises
--- PAWPIN:VALIDATION. The detail never echoes the input.
+-- MEOOFY:VALIDATION. The detail never echoes the input.
 
 -- The trimmed name, which must be 1 to petNameMax characters.
 create function registry.clean_pet_name(name text)

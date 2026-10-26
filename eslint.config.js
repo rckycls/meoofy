@@ -11,6 +11,8 @@ export default defineConfig(
     '.worktrees/**',
     '.superpowers/**',
     'supabase/.temp/**',
+    // Not committed yet and outside the workspace (pnpm-workspace.yaml); remove with that line.
+    'apps/video/**',
   ]),
   js.configs.recommended,
   tseslint.configs.recommended,

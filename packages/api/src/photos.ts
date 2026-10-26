@@ -1,5 +1,5 @@
-import { AppError, LIMITS, photoRequestSchema, type PhotoView } from '@pawpin/core'
-import type { PawpinClient } from './client'
+import { AppError, LIMITS, photoRequestSchema, type PhotoView } from '@meoofy/core'
+import type { MeoofyClient } from './client'
 import type { Database } from './database.types'
 import { toAppError, withStatus } from './errors'
 import { parseId, validationError } from './validation'
@@ -55,7 +55,7 @@ function toPetPhoto(row: PhotoFields, signedUrl: string | null): PetPhoto {
 }
 
 /** A signed URL for one file, or `null` if Storage won't make one right now. */
-async function signedUrlOrNull(c: PawpinClient, path: string): Promise<string | null> {
+async function signedUrlOrNull(c: MeoofyClient, path: string): Promise<string | null> {
   try {
     const { data } = await c.storage.from(BUCKET).createSignedUrl(path, LIMITS.signedUrlSeconds)
     return data?.signedUrl ?? null
@@ -76,7 +76,7 @@ function isDuplicate(error: { statusCode?: string } & object): boolean {
  * A pet's photos (every status), oldest first. Ready photos carry a signed URL valid for
  * LIMITS.signedUrlSeconds (one hour); a ready photo whose file Storage can't sign has `null`.
  */
-export async function listPhotos(c: PawpinClient, petId: string): Promise<PetPhoto[]> {
+export async function listPhotos(c: MeoofyClient, petId: string): Promise<PetPhoto[]> {
   try {
     const pet = parseId(petId, 'petId')
     const { data, error, status } = await c
@@ -118,7 +118,7 @@ export async function listPhotos(c: PawpinClient, petId: string): Promise<PetPho
  * The photo `a.id` if it is already confirmed as this pet's `a.view`: what a retry finds when the
  * first attempt's confirm got through but its answer was lost.
  */
-async function alreadyConfirmed(c: PawpinClient, a: PhotoUpload): Promise<PetPhoto | null> {
+async function alreadyConfirmed(c: MeoofyClient, a: PhotoUpload): Promise<PetPhoto | null> {
   const { data, error, status } = await c
     .from('pet_photos')
     .select(PHOTO_COLUMNS)
@@ -174,7 +174,7 @@ export function isPhotoLimitReached(e: unknown): boolean {
  * deleted photo whose file cleanup has not removed yet (Ruling 26). A new photo needs a new id. A
  * new photo for a view replaces the photo left pending there by an earlier attempt (Ruling 54).
  */
-export async function uploadPhoto(c: PawpinClient, a: PhotoUpload): Promise<PetPhoto> {
+export async function uploadPhoto(c: MeoofyClient, a: PhotoUpload): Promise<PetPhoto> {
   try {
     const request = photoRequestSchema.safeParse({
       id: a.id,
@@ -236,7 +236,7 @@ export async function uploadPhoto(c: PawpinClient, a: PhotoUpload): Promise<PetP
  * Deletes one of the owner's photos (its file is queued for cleanup). Resolves when the photo is
  * already gone, so a retried delete succeeds, as deletePet does (Ruling 18).
  */
-export async function deletePhoto(c: PawpinClient, id: string): Promise<void> {
+export async function deletePhoto(c: MeoofyClient, id: string): Promise<void> {
   try {
     const photoId = parseId(id)
     const { error, status } = await c.rpc('delete_photo', { id: photoId })

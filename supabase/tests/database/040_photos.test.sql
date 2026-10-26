@@ -13,15 +13,15 @@ select plan(164);
 
 do $$
 declare
-  a uuid := tests.create_user('photos-a@pawpin.test');
-  b uuid := tests.create_user('photos-b@pawpin.test');
-  r uuid := tests.create_user('photos-r@pawpin.test');
-  n uuid := tests.create_user('photos-n@pawpin.test');
+  a uuid := tests.create_user('photos-a@meoofy.test');
+  b uuid := tests.create_user('photos-b@meoofy.test');
+  r uuid := tests.create_user('photos-r@meoofy.test');
+  n uuid := tests.create_user('photos-n@meoofy.test');
 begin
-  perform set_config('pawpin.a', a::text, true);
-  perform set_config('pawpin.b', b::text, true);
-  perform set_config('pawpin.r', r::text, true);
-  perform set_config('pawpin.n', n::text, true);
+  perform set_config('meoofy.a', a::text, true);
+  perform set_config('meoofy.b', b::text, true);
+  perform set_config('meoofy.r', r::text, true);
+  perform set_config('meoofy.n', n::text, true);
 
   insert into registry.pets (id, owner_id, name, species)
   values ('a4000000-0000-4000-8000-000000000001', a, 'Milo', 'dog'),
@@ -34,8 +34,8 @@ begin
   select ('c4000000-0000-4000-8000-00000000000' || i)::uuid, r, 'Pet ' || i, 'dog'
     from generate_series(1, 6) i;
 
-  -- pawpin.path_<key>: the storage path {owner}/{pet}/{photo}.jpg of each named photo.
-  perform set_config('pawpin.path_' || v.k, v.o || '/' || v.p || '/' || v.ph || '.jpg', true)
+  -- meoofy.path_<key>: the storage path {owner}/{pet}/{photo}.jpg of each named photo.
+  perform set_config('meoofy.path_' || v.k, v.o || '/' || v.p || '/' || v.ph || '.jpg', true)
      from (values
        ('f1', a, 'a4000000-0000-4000-8000-000000000001', 'a4000000-0000-4000-8000-00000000f001'),
        ('f2', a, 'a4000000-0000-4000-8000-000000000001', 'a4000000-0000-4000-8000-00000000f002'),
@@ -91,7 +91,7 @@ grant execute on function tests.upload(text), tests.row_count(text), tests.error
   to authenticated;
 
 -- A second bucket, to prove the policies and confirm_photo only look at pet-photos.
-insert into storage.buckets (id, name) values ('pawpin-test-other', 'pawpin-test-other');
+insert into storage.buckets (id, name) values ('meoofy-test-other', 'meoofy-test-other');
 
 -- ---------------------------------------------------------------------------
 -- Shape and privileges
@@ -178,11 +178,11 @@ select is_empty(
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:UNAUTHENTICATED', 'request_photo_upload without a JWT throws UNAUTHENTICATED');
+  'P0001', 'MEOOFY:UNAUTHENTICATED', 'request_photo_upload without a JWT throws UNAUTHENTICATED');
 select throws_ok($$ select api.confirm_photo(gen_random_uuid(), 1600, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:UNAUTHENTICATED', 'confirm_photo without a JWT throws UNAUTHENTICATED');
+  'P0001', 'MEOOFY:UNAUTHENTICATED', 'confirm_photo without a JWT throws UNAUTHENTICATED');
 select throws_ok($$ select api.delete_photo(gen_random_uuid()) $$,
-  'P0001', 'PAWPIN:UNAUTHENTICATED', 'delete_photo without a JWT throws UNAUTHENTICATED');
+  'P0001', 'MEOOFY:UNAUTHENTICATED', 'delete_photo without a JWT throws UNAUTHENTICATED');
 
 -- The authenticated role with no usable subject claim (a token without sub).
 do $$
@@ -194,12 +194,12 @@ $$;
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:UNAUTHENTICATED',
+  'P0001', 'MEOOFY:UNAUTHENTICATED',
   'request_photo_upload with no subject claim throws UNAUTHENTICATED');
 select throws_ok($$ select api.confirm_photo(gen_random_uuid(), 1600, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:UNAUTHENTICATED', 'confirm_photo with no subject claim throws UNAUTHENTICATED');
+  'P0001', 'MEOOFY:UNAUTHENTICATED', 'confirm_photo with no subject claim throws UNAUTHENTICATED');
 select throws_ok($$ select api.delete_photo(gen_random_uuid()) $$,
-  'P0001', 'PAWPIN:UNAUTHENTICATED', 'delete_photo with no subject claim throws UNAUTHENTICATED');
+  'P0001', 'MEOOFY:UNAUTHENTICATED', 'delete_photo with no subject claim throws UNAUTHENTICATED');
 
 -- The anon role cannot reach any of it.
 do $$ begin perform set_config('role', 'anon', true); end $$;
@@ -217,12 +217,12 @@ reset role;
 -- ---------------------------------------------------------------------------
 -- request_photo_upload (user A)
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f001',
                            'a4000000-0000-4000-8000-000000000001', 'front', 'image/jpeg', 350000),
-  current_setting('pawpin.a')
+  current_setting('meoofy.a')
     || '/a4000000-0000-4000-8000-000000000001/a4000000-0000-4000-8000-00000000f001.jpg',
   'request_photo_upload returns the path <owner>/<pet>/<photo>.jpg'
 );
@@ -231,7 +231,7 @@ select results_eq(
             height, blur_score, brightness, confirmed_at
        from registry.pet_photos where id = 'a4000000-0000-4000-8000-00000000f001' $$,
   $$ values ('a4000000-0000-4000-8000-000000000001'::uuid, true, 'front',
-             current_setting('pawpin.path_f1'), 350000, 'pending', null::integer, null::integer,
+             current_setting('meoofy.path_f1'), 350000, 'pending', null::integer, null::integer,
              null::real, null::real, null::timestamptz) $$,
   'request_photo_upload creates a pending row at that path, with no measurements yet'
 );
@@ -239,7 +239,7 @@ select results_eq(
   $$ select id, pet_id, view::text, status::text, storage_path from api.pet_photos $$,
   $$ values ('a4000000-0000-4000-8000-00000000f001'::uuid,
              'a4000000-0000-4000-8000-000000000001'::uuid, 'front', 'pending',
-             current_setting('pawpin.path_f1')) $$,
+             current_setting('meoofy.path_f1')) $$,
   'the pending photo is readable through api.pet_photos'
 );
 select results_eq(
@@ -254,7 +254,7 @@ select results_eq(
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f001',
                            'a4000000-0000-4000-8000-000000000001', 'front', 'image/jpeg', 350000),
-  current_setting('pawpin.path_f1'),
+  current_setting('meoofy.path_f1'),
   'repeating request_photo_upload with the same id returns the same path'
 );
 select results_eq(
@@ -265,62 +265,62 @@ select results_eq(
 select throws_ok(
   $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f001',
                                      'a4000000-0000-4000-8000-000000000003', 'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'reusing a photo id for another pet throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'reusing a photo id for another pet throws VALIDATION');
 select throws_ok(
   $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f001',
                                      'a4000000-0000-4000-8000-000000000001', 'side', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'reusing a photo id for another view throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'reusing a photo id for another view throws VALIDATION');
 
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f101',
                            'a4000000-0000-4000-8000-000000000001', 'side', 'image/jpeg', 4194304),
-  current_setting('pawpin.path_s1'), 'exactly 4194304 bytes is accepted'
+  current_setting('meoofy.path_s1'), 'exactly 4194304 bytes is accepted'
 );
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f201',
                            'a4000000-0000-4000-8000-000000000001', 'markings', 'image/jpeg', 1),
-  current_setting('pawpin.path_m1'), 'a single byte is accepted'
+  current_setting('meoofy.path_m1'), 'a single byte is accepted'
 );
 
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/png', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'content_type image/png throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'content_type image/png throws VALIDATION');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'IMAGE/JPEG', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'content_type must be exactly image/jpeg');
+  'P0001', 'MEOOFY:VALIDATION', 'content_type must be exactly image/jpeg');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', null, 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'a null content_type throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'a null content_type throws VALIDATION');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', 4194305) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'bytes 4194305 throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'bytes 4194305 throws VALIDATION');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', 0) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'bytes 0 throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'bytes 0 throws VALIDATION');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', -1) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'negative bytes throw VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'negative bytes throw VALIDATION');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', null) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'null bytes throw VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'null bytes throw VALIDATION');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      null, 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'a null view throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'a null view throws VALIDATION');
 select throws_ok(
   $$ select api.request_photo_upload(null, 'a4000000-0000-4000-8000-000000000001', 'front',
                                      'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'a null id throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'a null id throws VALIDATION');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), null, 'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'a null pet_id throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'a null pet_id throws VALIDATION');
 select results_eq(
   $$ select (select count(*)::int from registry.pet_photos), (select count(*)::int from audit.events) $$,
   $$ values (3, 3) $$,
@@ -333,12 +333,12 @@ select tests.clear_auth();
 insert into registry.pet_photos (id, pet_id, owner_id, view, storage_path, bytes, status, width,
                                  height, confirmed_at)
 select ('a4000000-0000-4000-8000-00000000f40' || n)::uuid, 'a4000000-0000-4000-8000-000000000002',
-       current_setting('pawpin.a')::uuid, 'extra',
-       current_setting('pawpin.a') || '/a4000000-0000-4000-8000-000000000002/a4000000-0000-4000-8000-00000000f40'
+       current_setting('meoofy.a')::uuid, 'extra',
+       current_setting('meoofy.a') || '/a4000000-0000-4000-8000-000000000002/a4000000-0000-4000-8000-00000000f40'
          || n || '.jpg',
        1000, 'ready', 1600, 1200, now()
   from generate_series(4, 6) n;
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select lives_ok(
   $$ select api.request_photo_upload(('a4000000-0000-4000-8000-00000000f40' || n)::uuid,
@@ -350,7 +350,7 @@ select lives_ok(
 select throws_ok(
   $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f407',
                                      'a4000000-0000-4000-8000-000000000002', 'extra', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'a 7th non-rejected photo throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'a 7th non-rejected photo throws VALIDATION');
 -- The client tells this refusal apart by its detail (packages/api isPhotoLimitReached).
 select is(tests.error_detail(
   $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f407',
@@ -359,7 +359,7 @@ select is(tests.error_detail(
 
 select tests.clear_auth();
 update registry.pet_photos set status = 'rejected' where id = 'a4000000-0000-4000-8000-00000000f401';
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select lives_ok(
   $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f407',
@@ -375,39 +375,39 @@ select results_eq(
 -- ---------------------------------------------------------------------------
 -- Owner isolation (user B)
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.b')::uuid);
+select tests.authenticate_as(current_setting('meoofy.b')::uuid);
 
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'B requesting an upload for A''s pet throws NOT_OWNER');
+  'P0001', 'MEOOFY:NOT_OWNER', 'B requesting an upload for A''s pet throws NOT_OWNER');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'a4000000-0000-4000-8000-000000000001',
                                      'front', 'image/png', 1000) $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'ownership is checked before validation');
+  'P0001', 'MEOOFY:NOT_OWNER', 'ownership is checked before validation');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), gen_random_uuid(), 'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'requesting an upload for a pet that does not exist throws NOT_OWNER');
+  'P0001', 'MEOOFY:NOT_OWNER', 'requesting an upload for a pet that does not exist throws NOT_OWNER');
 select throws_ok(
   $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f001',
                                      'b4000000-0000-4000-8000-000000000001', 'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'reusing another owner''s photo id throws NOT_OWNER');
+  'P0001', 'MEOOFY:NOT_OWNER', 'reusing another owner''s photo id throws NOT_OWNER');
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f001', 1600, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'B confirming A''s photo throws NOT_OWNER');
+  'P0001', 'MEOOFY:NOT_OWNER', 'B confirming A''s photo throws NOT_OWNER');
 select throws_ok($$ select api.delete_photo('a4000000-0000-4000-8000-00000000f001') $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'B deleting A''s photo throws NOT_OWNER');
+  'P0001', 'MEOOFY:NOT_OWNER', 'B deleting A''s photo throws NOT_OWNER');
 select throws_ok($$ select api.confirm_photo(gen_random_uuid(), 1600, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'confirming a photo that does not exist throws NOT_OWNER');
+  'P0001', 'MEOOFY:NOT_OWNER', 'confirming a photo that does not exist throws NOT_OWNER');
 select throws_ok($$ select api.delete_photo(gen_random_uuid()) $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'deleting a photo that does not exist throws NOT_OWNER');
+  'P0001', 'MEOOFY:NOT_OWNER', 'deleting a photo that does not exist throws NOT_OWNER');
 select is_empty($$ select 1 from api.pet_photos $$, 'B sees none of A''s photos in api.pet_photos');
 select is_empty($$ select 1 from audit.events $$, 'B''s rejected calls wrote no events');
 
 select is(
   api.request_photo_upload('b4000000-0000-4000-8000-00000000f001',
                            'b4000000-0000-4000-8000-000000000001', 'front', 'image/jpeg', 1000),
-  current_setting('pawpin.path_b1'), 'B requests an upload for their own pet'
+  current_setting('meoofy.path_b1'), 'B requests an upload for their own pet'
 );
 select results_eq($$ select id from api.pet_photos $$,
   $$ values ('b4000000-0000-4000-8000-00000000f001'::uuid) $$,
@@ -416,7 +416,7 @@ select results_eq($$ select id from api.pet_photos $$,
 select tests.clear_auth();
 select results_eq(
   $$ select status::text, count(*)::int from registry.pet_photos
-      where owner_id = current_setting('pawpin.a')::uuid group by 1 order by 1 $$,
+      where owner_id = current_setting('meoofy.a')::uuid group by 1 order by 1 $$,
   $$ values ('pending', 6), ('ready', 3), ('rejected', 1) $$,
   'A''s photos are untouched by B''s attempts'
 );
@@ -424,20 +424,20 @@ select results_eq(
 -- ---------------------------------------------------------------------------
 -- confirm_photo needs the uploaded file
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f001', 1600, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:PHOTO_QUALITY',
+  'P0001', 'MEOOFY:PHOTO_QUALITY',
   'confirm_photo without a storage.objects row throws PHOTO_QUALITY');
 
 select tests.clear_auth();
 insert into storage.objects (bucket_id, name, owner_id)
-values ('pawpin-test-other', current_setting('pawpin.path_f1'), current_setting('pawpin.a'));
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+values ('meoofy-test-other', current_setting('meoofy.path_f1'), current_setting('meoofy.a'));
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f001', 1600, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:PHOTO_QUALITY', 'a file at the same path in another bucket does not count');
+  'P0001', 'MEOOFY:PHOTO_QUALITY', 'a file at the same path in another bucket does not count');
 select results_eq(
   $$ select status::text from api.pet_photos where id = 'a4000000-0000-4000-8000-00000000f001' $$,
   $$ values ('pending') $$, 'the photo stays pending after a refused confirm');
@@ -445,37 +445,37 @@ select results_eq(
 -- ---------------------------------------------------------------------------
 -- Storage policies on storage.objects (user A, then B and anon)
 -- ---------------------------------------------------------------------------
-select throws_ok($$ select tests.upload(current_setting('pawpin.path_b1')) $$, '42501', null,
+select throws_ok($$ select tests.upload(current_setting('meoofy.path_b1')) $$, '42501', null,
   'A cannot upload into B''s folder, even at B''s pending path');
 select throws_ok(
-  $$ select tests.upload(current_setting('pawpin.b') || '/b4000000-0000-4000-8000-000000000001/'
+  $$ select tests.upload(current_setting('meoofy.b') || '/b4000000-0000-4000-8000-000000000001/'
                          || gen_random_uuid() || '.jpg') $$,
   '42501', null, 'A cannot upload anywhere under <B>/');
 select throws_ok(
-  $$ select tests.upload(current_setting('pawpin.a') || '/a4000000-0000-4000-8000-000000000001/'
+  $$ select tests.upload(current_setting('meoofy.a') || '/a4000000-0000-4000-8000-000000000001/'
                          || gen_random_uuid() || '.jpg') $$,
   '42501', null, 'A cannot upload to a path in their own folder that no pending photo has');
-select throws_ok($$ select tests.upload(current_setting('pawpin.path_l1')) $$, '42501', null,
+select throws_ok($$ select tests.upload(current_setting('meoofy.path_l1')) $$, '42501', null,
   'A cannot upload to the path of a photo that is not pending');
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name, owner_id)
-     values ('pawpin-test-other', current_setting('pawpin.path_s1'), auth.uid()::text) $$,
+     values ('meoofy-test-other', current_setting('meoofy.path_s1'), auth.uid()::text) $$,
   '42501', null, 'a pending path opens the pet-photos bucket only');
-select lives_ok($$ select tests.upload(current_setting('pawpin.path_f1')) $$,
+select lives_ok($$ select tests.upload(current_setting('meoofy.path_f1')) $$,
   'A uploads to their own pending photo''s path');
 
-select tests.authenticate_as(current_setting('pawpin.b')::uuid);
-select lives_ok($$ select tests.upload(current_setting('pawpin.path_b1')) $$,
+select tests.authenticate_as(current_setting('meoofy.b')::uuid);
+select lives_ok($$ select tests.upload(current_setting('meoofy.path_b1')) $$,
   'B uploads to their own pending photo''s path');
 select results_eq($$ select name from storage.objects $$,
-  $$ values (current_setting('pawpin.path_b1')) $$, 'B sees only their own file');
+  $$ values (current_setting('meoofy.path_b1')) $$, 'B sees only their own file');
 
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 select is_empty(
-  $$ select 1 from storage.objects where name like current_setting('pawpin.b') || '/%' $$,
+  $$ select 1 from storage.objects where name like current_setting('meoofy.b') || '/%' $$,
   'A selecting B''s objects returns 0 rows');
 select results_eq($$ select bucket_id, name from storage.objects $$,
-  $$ values ('pet-photos', current_setting('pawpin.path_f1')) $$,
+  $$ values ('pet-photos', current_setting('meoofy.path_f1')) $$,
   'A sees only their own file in pet-photos, and nothing in other buckets');
 
 select is(tests.row_count($$ update storage.objects set metadata = '{"tampered": true}' $$), 0,
@@ -494,42 +494,42 @@ begin
 end
 $$;
 select is_empty($$ select 1 from storage.objects $$, 'anon sees no files');
-select throws_ok($$ select tests.upload(current_setting('pawpin.path_s1')) $$, '42501', null,
+select throws_ok($$ select tests.upload(current_setting('meoofy.path_s1')) $$, '42501', null,
   'anon cannot upload, even to a pending path');
 reset role;
 
 select results_eq(
   $$ select name, metadata from storage.objects where bucket_id = 'pet-photos' order by name $$,
   format($$ select * from (values (%L, null::jsonb), (%L, null::jsonb)) v order by 1 $$,
-         current_setting('pawpin.path_f1'), current_setting('pawpin.path_b1')),
+         current_setting('meoofy.path_f1'), current_setting('meoofy.path_b1')),
   'both uploaded files are still there, unchanged'
 );
 
 -- ---------------------------------------------------------------------------
 -- confirm_photo: quality and success (user A)
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f001', null, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'confirm_photo without a width throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'confirm_photo without a width throws VALIDATION');
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f001', 1600, null, 200, 120) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'confirm_photo without a height throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'confirm_photo without a height throws VALIDATION');
 select throws_ok($$ select api.confirm_photo(null, 1600, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'confirm_photo with a null id throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'confirm_photo with a null id throws VALIDATION');
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f001', 1600, 719, 200, 120) $$,
-  'P0001', 'PAWPIN:PHOTO_QUALITY', 'with the file uploaded, height 719 throws PHOTO_QUALITY');
+  'P0001', 'MEOOFY:PHOTO_QUALITY', 'with the file uploaded, height 719 throws PHOTO_QUALITY');
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f001', 719, 1600, 200, 120) $$,
-  'P0001', 'PAWPIN:PHOTO_QUALITY', 'the short side is checked in either orientation');
+  'P0001', 'MEOOFY:PHOTO_QUALITY', 'the short side is checked in either orientation');
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f001', 0, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:PHOTO_QUALITY', 'a zero width throws PHOTO_QUALITY');
+  'P0001', 'MEOOFY:PHOTO_QUALITY', 'a zero width throws PHOTO_QUALITY');
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f401', 1600, 1200, 200, 120) $$,
-  'P0001', 'PAWPIN:PHOTO_QUALITY', 'a rejected photo cannot be confirmed');
+  'P0001', 'MEOOFY:PHOTO_QUALITY', 'a rejected photo cannot be confirmed');
 
 select results_eq(
   $$ select id, status::text, width, height, blur_score, brightness, confirmed_at = now()
@@ -561,7 +561,7 @@ select results_eq(
 select is((select count(*)::int from audit.events where action = 'photo.added'), 1,
   'the repeated confirm wrote no event');
 
-select lives_ok($$ select tests.upload(current_setting('pawpin.path_s1')) $$,
+select lives_ok($$ select tests.upload(current_setting('meoofy.path_s1')) $$,
   'A uploads the side photo');
 select results_eq(
   $$ select status::text, width, height
@@ -583,9 +583,9 @@ select results_eq(
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f002',
                            'a4000000-0000-4000-8000-000000000001', 'front', 'image/jpeg', 300000),
-  current_setting('pawpin.path_f2'), 'A requests a new front photo for Milo'
+  current_setting('meoofy.path_f2'), 'A requests a new front photo for Milo'
 );
-select lives_ok($$ select tests.upload(current_setting('pawpin.path_f2')) $$,
+select lives_ok($$ select tests.upload(current_setting('meoofy.path_f2')) $$,
   'A uploads the new front photo');
 select results_eq(
   $$ select id, status::text
@@ -611,29 +611,29 @@ select results_eq(
 select tests.clear_auth();
 select results_eq(
   $$ select storage_path, attempts, last_error from registry.storage_deletions
-      where storage_path like current_setting('pawpin.a') || '/%' $$,
-  $$ values (current_setting('pawpin.path_f1'), 0, null::text) $$,
+      where storage_path like current_setting('meoofy.a') || '/%' $$,
+  $$ values (current_setting('meoofy.path_f1'), 0, null::text) $$,
   'the replaced photo''s path is queued in registry.storage_deletions, and the new one is not'
 );
 select results_eq(
   $$ select count(*)::int from storage.objects
-      where bucket_id = 'pet-photos' and name = current_setting('pawpin.path_f1') $$,
+      where bucket_id = 'pet-photos' and name = current_setting('meoofy.path_f1') $$,
   $$ values (1) $$,
   'the replaced file stays in storage until the cleanup job removes it'
 );
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 -- A retake that fails the quality check keeps the previous good photo.
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f003',
                            'a4000000-0000-4000-8000-000000000001', 'front', 'image/jpeg', 300000),
-  current_setting('pawpin.path_f3'), 'A requests a retake of the front photo'
+  current_setting('meoofy.path_f3'), 'A requests a retake of the front photo'
 );
-select lives_ok($$ select tests.upload(current_setting('pawpin.path_f3')) $$,
+select lives_ok($$ select tests.upload(current_setting('meoofy.path_f3')) $$,
   'A uploads the retake');
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f003', 1600, 600, 190, 130) $$,
-  'P0001', 'PAWPIN:PHOTO_QUALITY', 'a retake with a short side of 600 throws PHOTO_QUALITY');
+  'P0001', 'MEOOFY:PHOTO_QUALITY', 'a retake with a short side of 600 throws PHOTO_QUALITY');
 select results_eq(
   $$ select id, status::text from api.pet_photos
       where pet_id = 'a4000000-0000-4000-8000-000000000001' and view = 'front' order by status $$,
@@ -647,8 +647,8 @@ select results_eq(
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f301',
                            'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000),
-  current_setting('pawpin.path_x1'), 'A requests an extra photo for Pip');
-select lives_ok($$ select tests.upload(current_setting('pawpin.path_x1')) $$,
+  current_setting('meoofy.path_x1'), 'A requests an extra photo for Pip');
+select lives_ok($$ select tests.upload(current_setting('meoofy.path_x1')) $$,
   'A uploads the first extra photo');
 select lives_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f301', 1600, 1200, 150, 120) $$,
@@ -656,8 +656,8 @@ select lives_ok(
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f302',
                            'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000),
-  current_setting('pawpin.path_x2'), 'A requests a second extra photo for Pip');
-select lives_ok($$ select tests.upload(current_setting('pawpin.path_x2')) $$,
+  current_setting('meoofy.path_x2'), 'A requests a second extra photo for Pip');
+select lives_ok($$ select tests.upload(current_setting('meoofy.path_x2')) $$,
   'A uploads the second extra photo');
 select lives_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f302', 1600, 1200, 150, 120) $$,
@@ -673,14 +673,14 @@ select results_eq(
 select tests.clear_auth();
 select is(
   (select count(*)::int from registry.storage_deletions
-    where storage_path like current_setting('pawpin.a') || '/%'),
+    where storage_path like current_setting('meoofy.a') || '/%'),
   1, 'the failed retake and the extra photos queued nothing'
 );
 
 -- ---------------------------------------------------------------------------
 -- delete_photo (user A)
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select lives_ok($$ select api.delete_photo('a4000000-0000-4000-8000-00000000f003') $$,
   'A deletes the pending retake');
@@ -699,30 +699,30 @@ select lives_ok($$ select api.delete_photo('a4000000-0000-4000-8000-00000000f101
 select tests.clear_auth();
 select results_eq(
   $$ select storage_path from registry.storage_deletions
-      where storage_path like current_setting('pawpin.a') || '/%' order by id $$,
-  $$ values (current_setting('pawpin.path_f1')), (current_setting('pawpin.path_f3')),
-            (current_setting('pawpin.path_s1')) $$,
+      where storage_path like current_setting('meoofy.a') || '/%' order by id $$,
+  $$ values (current_setting('meoofy.path_f1')), (current_setting('meoofy.path_f3')),
+            (current_setting('meoofy.path_s1')) $$,
   'delete_photo queues the path of each deleted photo, pending or ready'
 );
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select throws_ok($$ select api.delete_photo('a4000000-0000-4000-8000-00000000f003') $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'deleting an already deleted photo throws NOT_OWNER');
+  'P0001', 'MEOOFY:NOT_OWNER', 'deleting an already deleted photo throws NOT_OWNER');
 select throws_ok(
   $$ select api.confirm_photo('a4000000-0000-4000-8000-00000000f003', 1600, 1200, 190, 130) $$,
-  'P0001', 'PAWPIN:NOT_OWNER', 'confirming a deleted photo throws NOT_OWNER');
+  'P0001', 'MEOOFY:NOT_OWNER', 'confirming a deleted photo throws NOT_OWNER');
 select throws_ok($$ select api.delete_photo(null) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'delete_photo with a null id throws VALIDATION');
+  'P0001', 'MEOOFY:VALIDATION', 'delete_photo with a null id throws VALIDATION');
 
 -- A deleted slot no longer accepts an upload.
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f004',
                            'a4000000-0000-4000-8000-000000000001', 'front', 'image/jpeg', 1000),
-  current_setting('pawpin.path_f4'), 'A requests another front photo'
+  current_setting('meoofy.path_f4'), 'A requests another front photo'
 );
 select lives_ok($$ select api.delete_photo('a4000000-0000-4000-8000-00000000f004') $$,
   'A deletes it before uploading');
-select throws_ok($$ select tests.upload(current_setting('pawpin.path_f4')) $$, '42501', null,
+select throws_ok($$ select tests.upload(current_setting('meoofy.path_f4')) $$, '42501', null,
   'once its pending photo is deleted, the path no longer accepts an upload');
 select results_eq(
   $$ select view::text, id, status::text from api.pet_photos
@@ -743,12 +743,12 @@ select tests.clear_auth();
 insert into registry.pet_photos (id, pet_id, owner_id, view, storage_path, bytes, status, width,
                                  height, confirmed_at)
 select ('a4000000-0000-4000-8000-00000000f50' || n)::uuid, 'a4000000-0000-4000-8000-000000000004',
-       current_setting('pawpin.a')::uuid, (array['front', 'side', 'markings'])[n]::registry.photo_view,
-       current_setting('pawpin.a') || '/a4000000-0000-4000-8000-000000000004/a4000000-0000-4000-8000-00000000f50'
+       current_setting('meoofy.a')::uuid, (array['front', 'side', 'markings'])[n]::registry.photo_view,
+       current_setting('meoofy.a') || '/a4000000-0000-4000-8000-000000000004/a4000000-0000-4000-8000-00000000f50'
          || n || '.jpg',
        1000, 'ready', 1600, 1200, now()
   from generate_series(1, 3) n;
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 
 select lives_ok(
   $$ select api.request_photo_upload(('a4000000-0000-4000-8000-00000000f50' || n)::uuid,
@@ -766,7 +766,7 @@ select results_eq(
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f507',
                            'a4000000-0000-4000-8000-000000000004', 'front', 'image/jpeg', 1000),
-  current_setting('pawpin.path_bo_f2'),
+  current_setting('meoofy.path_bo_f2'),
   'at the limit, a new front photo replaces the pending front photo instead of being refused');
 select results_eq(
   $$ select id, view::text, status::text from api.pet_photos
@@ -782,7 +782,7 @@ select results_eq(
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f507',
                            'a4000000-0000-4000-8000-000000000004', 'front', 'image/jpeg', 1000),
-  current_setting('pawpin.path_bo_f2'), 'a retried request with the same id still returns its slot');
+  current_setting('meoofy.path_bo_f2'), 'a retried request with the same id still returns its slot');
 select results_eq(
   $$ select (select count(*)::int from api.pet_photos
               where pet_id = 'a4000000-0000-4000-8000-000000000004'),
@@ -798,18 +798,18 @@ select results_eq(
 select throws_ok(
   $$ select api.request_photo_upload('a4000000-0000-4000-8000-00000000f504',
                                      'a4000000-0000-4000-8000-000000000004', 'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION',
+  'P0001', 'MEOOFY:VALIDATION',
   'the replaced photo''s id is refused while its path waits for cleanup (Ruling 26)');
 
 -- Extra photos too: Pip's pending extra is replaced by the next one; its ready extras never are.
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f303',
                            'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000),
-  current_setting('pawpin.path_x3'), 'A requests a third extra photo for Pip and leaves it pending');
+  current_setting('meoofy.path_x3'), 'A requests a third extra photo for Pip and leaves it pending');
 select is(
   api.request_photo_upload('a4000000-0000-4000-8000-00000000f304',
                            'a4000000-0000-4000-8000-000000000003', 'extra', 'image/jpeg', 1000),
-  current_setting('pawpin.path_x4'), 'A requests a fourth extra photo for Pip');
+  current_setting('meoofy.path_x4'), 'A requests a fourth extra photo for Pip');
 select results_eq(
   $$ select id, status::text from api.pet_photos
       where pet_id = 'a4000000-0000-4000-8000-000000000003' order by id $$,
@@ -821,16 +821,16 @@ select results_eq(
 select tests.clear_auth();
 select results_eq(
   $$ select storage_path, attempts from registry.storage_deletions
-      where storage_path in (current_setting('pawpin.path_bo_f'), current_setting('pawpin.path_x3'))
+      where storage_path in (current_setting('meoofy.path_bo_f'), current_setting('meoofy.path_x3'))
       order by id $$,
-  $$ values (current_setting('pawpin.path_bo_f'), 0), (current_setting('pawpin.path_x3'), 0) $$,
+  $$ values (current_setting('meoofy.path_bo_f'), 0), (current_setting('meoofy.path_x3'), 0) $$,
   'each replaced pending photo''s path is queued for the cleanup job'
 );
 
 -- ---------------------------------------------------------------------------
 -- The hourly upload limit (user R, six pets)
 -- ---------------------------------------------------------------------------
-select tests.authenticate_as(current_setting('pawpin.r')::uuid);
+select tests.authenticate_as(current_setting('meoofy.r')::uuid);
 
 select lives_ok(
   $$ select api.request_photo_upload(gen_random_uuid(),
@@ -841,7 +841,7 @@ select lives_ok(
 select throws_ok(
   $$ select api.request_photo_upload('c4000000-0000-4000-8000-00000000f001',
                                      'c4000000-0000-4000-8000-000000000006', 'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:RATE_LIMITED', 'the 31st request within an hour throws RATE_LIMITED');
+  'P0001', 'MEOOFY:RATE_LIMITED', 'the 31st request within an hour throws RATE_LIMITED');
 -- Each of pets 1 to 5 keeps one pending extra photo: each request replaced the one before it.
 select results_eq(
   $$ select (select count(*)::int from api.pet_photos),
@@ -853,32 +853,32 @@ select results_eq(
 select tests.clear_auth();
 update audit.events set created_at = now() - interval '61 minutes'
  where id = (select min(id) from audit.events
-              where actor_id = current_setting('pawpin.r')::uuid
+              where actor_id = current_setting('meoofy.r')::uuid
                 and action = 'photo.upload_requested');
-select tests.authenticate_as(current_setting('pawpin.r')::uuid);
+select tests.authenticate_as(current_setting('meoofy.r')::uuid);
 
 select is(
   api.request_photo_upload('c4000000-0000-4000-8000-00000000f001',
                            'c4000000-0000-4000-8000-000000000006', 'front', 'image/jpeg', 1000),
-  current_setting('pawpin.r')
+  current_setting('meoofy.r')
     || '/c4000000-0000-4000-8000-000000000006/c4000000-0000-4000-8000-00000000f001.jpg',
   'a request from more than an hour ago no longer counts'
 );
 select is(
   api.request_photo_upload('c4000000-0000-4000-8000-00000000f001',
                            'c4000000-0000-4000-8000-000000000006', 'front', 'image/jpeg', 1000),
-  current_setting('pawpin.r')
+  current_setting('meoofy.r')
     || '/c4000000-0000-4000-8000-000000000006/c4000000-0000-4000-8000-00000000f001.jpg',
   'a retry of an accepted request still succeeds at the limit'
 );
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'c4000000-0000-4000-8000-000000000006',
                                      'side', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:RATE_LIMITED', 'the hour rolls: 30 requests in the last hour throw RATE_LIMITED again');
+  'P0001', 'MEOOFY:RATE_LIMITED', 'the hour rolls: 30 requests in the last hour throw RATE_LIMITED again');
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'c4000000-0000-4000-8000-000000000006',
                                      'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:RATE_LIMITED', 'a new front photo for that pet is refused as well');
+  'P0001', 'MEOOFY:RATE_LIMITED', 'a new front photo for that pet is refused as well');
 select results_eq(
   $$ select id, status::text from api.pet_photos
       where pet_id = 'c4000000-0000-4000-8000-000000000006' $$,
@@ -889,27 +889,27 @@ select results_eq(
 select tests.clear_auth();
 update audit.events set created_at = now() - interval '59 minutes'
  where id = (select min(id) from audit.events
-              where actor_id = current_setting('pawpin.r')::uuid
+              where actor_id = current_setting('meoofy.r')::uuid
                 and action = 'photo.upload_requested'
                 and created_at = now());
-select tests.authenticate_as(current_setting('pawpin.r')::uuid);
+select tests.authenticate_as(current_setting('meoofy.r')::uuid);
 
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'c4000000-0000-4000-8000-000000000006',
                                      'side', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:RATE_LIMITED', 'a request from 59 minutes ago still counts');
+  'P0001', 'MEOOFY:RATE_LIMITED', 'a request from 59 minutes ago still counts');
 
 -- ---------------------------------------------------------------------------
 -- A caller whose account row no longer exists (deleted account, token still valid)
 -- ---------------------------------------------------------------------------
 select tests.clear_auth();
-delete from entitlements.accounts where owner_id = current_setting('pawpin.n')::uuid;
-select tests.authenticate_as(current_setting('pawpin.n')::uuid);
+delete from entitlements.accounts where owner_id = current_setting('meoofy.n')::uuid;
+select tests.authenticate_as(current_setting('meoofy.n')::uuid);
 
 select throws_ok(
   $$ select api.request_photo_upload(gen_random_uuid(), 'd4000000-0000-4000-8000-000000000001',
                                      'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:UNAUTHENTICATED',
+  'P0001', 'MEOOFY:UNAUTHENTICATED',
   'request_photo_upload without an account row throws UNAUTHENTICATED');
 
 -- ---------------------------------------------------------------------------
@@ -919,17 +919,17 @@ select tests.clear_auth();
 
 select results_eq(
   $$ select action, count(*)::int from audit.events
-      where actor_id = current_setting('pawpin.a')::uuid group by action order by action $$,
+      where actor_id = current_setting('meoofy.a')::uuid group by action order by action $$,
   $$ values ('photo.added', 5), ('photo.deleted', 3), ('photo.upload_requested', 18) $$,
   'each of A''s successful calls wrote exactly one event, and refused calls and retries wrote none'
 );
 select results_eq(
   $$ select actor_id, count(*)::int from audit.events
-      where actor_id in (current_setting('pawpin.b')::uuid, current_setting('pawpin.r')::uuid,
-                         current_setting('pawpin.n')::uuid)
+      where actor_id in (current_setting('meoofy.b')::uuid, current_setting('meoofy.r')::uuid,
+                         current_setting('meoofy.n')::uuid)
       group by actor_id order by count(*) $$,
   format($$ values (%L::uuid, 1), (%L::uuid, 31) $$,
-         current_setting('pawpin.b'), current_setting('pawpin.r')),
+         current_setting('meoofy.b'), current_setting('meoofy.r')),
   'B has one event for their own request, R one per accepted request, N none'
 );
 select is_empty(
@@ -979,8 +979,8 @@ create function pg_temp.blocked_by(waiter text, holder text) returns boolean
 language plpgsql as $$
 begin
   for i in 1..200 loop
-    if current_setting('pawpin.pid_' || holder)::int
-       = any (pg_blocking_pids(current_setting('pawpin.pid_' || waiter)::int)) then
+    if current_setting('meoofy.pid_' || holder)::int
+       = any (pg_blocking_pids(current_setting('meoofy.pid_' || waiter)::int)) then
       return true;
     end if;
     perform pg_sleep(0.05);
@@ -997,15 +997,15 @@ begin
   perform extensions.dblink_exec('setup', $q$
     set storage.allow_delete_query = 'true';
     delete from audit.events
-     where actor_id in (select id from auth.users where email like 'photos-race-%@pawpin.test');
+     where actor_id in (select id from auth.users where email like 'photos-race-%@meoofy.test');
     delete from registry.storage_deletions
      where split_part(storage_path, '/', 1)
-           in (select id::text from auth.users where email like 'photos-race-%@pawpin.test');
+           in (select id::text from auth.users where email like 'photos-race-%@meoofy.test');
     delete from storage.objects
      where bucket_id = 'pet-photos'
        and split_part(name, '/', 1)
-           in (select id::text from auth.users where email like 'photos-race-%@pawpin.test');
-    delete from auth.users where email like 'photos-race-%@pawpin.test';
+           in (select id::text from auth.users where email like 'photos-race-%@meoofy.test');
+    delete from auth.users where email like 'photos-race-%@meoofy.test';
     reset storage.allow_delete_query;
   $q$);
 end
@@ -1023,21 +1023,21 @@ begin
   foreach conn in array array['setup', 's1', 's2'] loop
     perform extensions.dblink_connect(conn, pg_temp.connection_string());
     perform extensions.dblink_exec(conn, $q$ set lock_timeout = '5s' $q$);
-    perform set_config('pawpin.pid_' || conn,
+    perform set_config('meoofy.pid_' || conn,
       (select pid::text from extensions.dblink(conn, 'select pg_backend_pid()') as t(pid int)), true);
   end loop;
   perform pg_temp.remove_race_users();
 
   select uid into c from extensions.dblink('setup',
-    format('select tests.create_user(%L)', 'photos-race-' || gen_random_uuid() || '@pawpin.test'))
+    format('select tests.create_user(%L)', 'photos-race-' || gen_random_uuid() || '@meoofy.test'))
     as t(uid uuid);
-  perform set_config('pawpin.c', c::text, true);
-  perform set_config('pawpin.c_pet', pet::text, true);
-  perform set_config('pawpin.c_pet2', pet2::text, true);
-  perform set_config('pawpin.c_p1', p1::text, true);
-  perform set_config('pawpin.c_p2', p2::text, true);
-  perform set_config('pawpin.c_path1', c || '/' || pet || '/' || p1 || '.jpg', true);
-  perform set_config('pawpin.c_path2', c || '/' || pet || '/' || p2 || '.jpg', true);
+  perform set_config('meoofy.c', c::text, true);
+  perform set_config('meoofy.c_pet', pet::text, true);
+  perform set_config('meoofy.c_pet2', pet2::text, true);
+  perform set_config('meoofy.c_p1', p1::text, true);
+  perform set_config('meoofy.c_p2', p2::text, true);
+  perform set_config('meoofy.c_path1', c || '/' || pet || '/' || p1 || '.jpg', true);
+  perform set_config('meoofy.c_path2', c || '/' || pet || '/' || p2 || '.jpg', true);
 
   perform extensions.dblink_exec('setup', format(
     $q$ insert into registry.pets (id, owner_id, name, species)
@@ -1049,33 +1049,33 @@ begin
         insert into audit.events (actor_id, action, subject_type, subject_id, metadata)
         select %2$L, 'photo.upload_requested', 'photo', gen_random_uuid(), '{"view": "extra"}'
           from generate_series(1, 29) $q$,
-    pet, c, p1, p2, current_setting('pawpin.c_path1'), current_setting('pawpin.c_path2'), pet2));
+    pet, c, p1, p2, current_setting('meoofy.c_path1'), current_setting('meoofy.c_path2'), pet2));
 end
 $$;
 
 -- 1. Two pending front photos of one pet are confirmed at once.
 do $$
 begin
-  perform pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
-  perform pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
+  perform pg_temp.begin_as('s1', current_setting('meoofy.c')::uuid);
+  perform pg_temp.begin_as('s2', current_setting('meoofy.c')::uuid);
 end
 $$;
 select is(
   (select id from extensions.dblink('s1',
-     format('select id from api.confirm_photo(%L, 1600, 1200, 200, 120)', current_setting('pawpin.c_p1')))
+     format('select id from api.confirm_photo(%L, 1600, 1200, 200, 120)', current_setting('meoofy.c_p1')))
      as t(id uuid)),
-  current_setting('pawpin.c_p1')::uuid, 'the first confirm marks its front photo ready');
+  current_setting('meoofy.c_p1')::uuid, 'the first confirm marks its front photo ready');
 do $$
 begin
   perform extensions.dblink_send_query('s2',
-    format('select id from api.confirm_photo(%L, 1600, 1200, 200, 120)', current_setting('pawpin.c_p2')));
+    format('select id from api.confirm_photo(%L, 1600, 1200, 200, 120)', current_setting('meoofy.c_p2')));
 end
 $$;
 select ok(pg_temp.blocked_by('s2', 's1'),
   'a second confirm for the same pet waits for the first to finish');
 do $$ begin perform extensions.dblink_exec('s1', 'commit'); end $$;
 select results_eq($$ select * from extensions.dblink_get_result('s2') as t(id uuid) $$,
-  $$ values (current_setting('pawpin.c_p2')::uuid) $$,
+  $$ values (current_setting('meoofy.c_p2')::uuid) $$,
   'the waiting confirm of the same view succeeds instead of colliding on the one-ready-per-view index');
 do $$
 begin
@@ -1084,14 +1084,14 @@ begin
 end
 $$;
 select results_eq(
-  $$ select id, status::text from registry.pet_photos where pet_id = current_setting('pawpin.c_pet')::uuid $$,
-  $$ values (current_setting('pawpin.c_p2')::uuid, 'ready') $$,
+  $$ select id, status::text from registry.pet_photos where pet_id = current_setting('meoofy.c_pet')::uuid $$,
+  $$ values (current_setting('meoofy.c_p2')::uuid, 'ready') $$,
   'concurrent confirms leave exactly one ready front photo, the later one'
 );
 select results_eq(
   $$ select storage_path from registry.storage_deletions
-      where split_part(storage_path, '/', 1) = current_setting('pawpin.c') $$,
-  $$ values (current_setting('pawpin.c_path1')) $$,
+      where split_part(storage_path, '/', 1) = current_setting('meoofy.c') $$,
+  $$ values (current_setting('meoofy.c_path1')) $$,
   'the front photo replaced by the concurrent confirm is queued for deletion'
 );
 
@@ -1099,28 +1099,28 @@ select results_eq(
 -- hour). Different pets, so only the account lock can make the second one wait.
 do $$
 begin
-  perform pg_temp.begin_as('s1', current_setting('pawpin.c')::uuid);
-  perform pg_temp.begin_as('s2', current_setting('pawpin.c')::uuid);
+  perform pg_temp.begin_as('s1', current_setting('meoofy.c')::uuid);
+  perform pg_temp.begin_as('s2', current_setting('meoofy.c')::uuid);
 end
 $$;
 select is(
   (select path from extensions.dblink('s1',
      format('select api.request_photo_upload(gen_random_uuid(), %L, %L, %L, 1000)',
-            current_setting('pawpin.c_pet'), 'side', 'image/jpeg'))
-     as t(path text)) like current_setting('pawpin.c') || '/%',
+            current_setting('meoofy.c_pet'), 'side', 'image/jpeg'))
+     as t(path text)) like current_setting('meoofy.c') || '/%',
   true, 'the 30th request of the hour succeeds');
 do $$
 begin
   perform extensions.dblink_send_query('s2',
     format('select api.request_photo_upload(gen_random_uuid(), %L, %L, %L, 1000)',
-           current_setting('pawpin.c_pet2'), 'front', 'image/jpeg'));
+           current_setting('meoofy.c_pet2'), 'front', 'image/jpeg'));
 end
 $$;
 select ok(pg_temp.blocked_by('s2', 's1'),
   'a concurrent request by the same owner waits for the first to finish');
 do $$ begin perform extensions.dblink_exec('s1', 'commit'); end $$;
 select throws_ok($$ select * from extensions.dblink_get_result('s2') as t(path text) $$,
-  'P0001', 'PAWPIN:RATE_LIMITED',
+  'P0001', 'MEOOFY:RATE_LIMITED',
   'concurrent requests never exceed the hourly limit: the waiting 31st request is refused');
 do $$
 begin
@@ -1130,7 +1130,7 @@ end
 $$;
 select is(
   (select count(*)::int from audit.events
-    where actor_id = current_setting('pawpin.c')::uuid and action = 'photo.upload_requested'
+    where actor_id = current_setting('meoofy.c')::uuid and action = 'photo.upload_requested'
       and created_at > now() - interval '1 hour'),
   30, 'the owner ends with exactly 30 upload requests in the hour'
 );
@@ -1143,11 +1143,11 @@ begin
 end
 $$;
 select results_eq(
-  $$ select (select count(*)::int from auth.users where id = current_setting('pawpin.c')::uuid),
+  $$ select (select count(*)::int from auth.users where id = current_setting('meoofy.c')::uuid),
             (select count(*)::int from storage.objects
-              where split_part(name, '/', 1) = current_setting('pawpin.c')),
+              where split_part(name, '/', 1) = current_setting('meoofy.c')),
             (select count(*)::int from registry.storage_deletions
-              where split_part(storage_path, '/', 1) = current_setting('pawpin.c')) $$,
+              where split_part(storage_path, '/', 1) = current_setting('meoofy.c')) $$,
   $$ values (0, 0, 0) $$,
   'the concurrency fixtures are removed'
 );

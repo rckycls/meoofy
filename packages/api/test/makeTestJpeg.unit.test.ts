@@ -1,7 +1,7 @@
 // makeTestJpeg must produce a photo the app's own quality check accepts, measured the way the app
 // measures it (spec §7: a 512px grayscale copy), or the upload tests would test a photo no user
 // could send. No network: this runs in the unit project.
-import { analyzeGray, assessPhoto, LIMITS } from '@pawpin/core'
+import { analyzeGray, assessPhoto, LIMITS } from '@meoofy/core'
 import jpeg from 'jpeg-js'
 import { describe, expect, it } from 'vitest'
 import { makeTestJpeg } from './helpers'

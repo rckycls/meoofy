@@ -1,10 +1,10 @@
-import { AppError } from '@pawpin/core'
-import type { PawpinClient } from './client'
+import { AppError } from '@meoofy/core'
+import type { MeoofyClient } from './client'
 import { toAppError, withStatus } from './errors'
 import { toEntitlement, type Entitlement } from './types'
 
 /** The signed-in user's tier, its pet limit (null when unlimited) and their private pet count. */
-export async function getEntitlement(c: PawpinClient): Promise<Entitlement> {
+export async function getEntitlement(c: MeoofyClient): Promise<Entitlement> {
   try {
     const { data, error, status } = await c
       .from('my_entitlement')

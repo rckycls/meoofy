@@ -11,8 +11,8 @@ import {
   type Entitlement,
   type Pet,
   type Profile,
-} from '@pawpin/api'
-import { cardRoles, colors } from '@pawpin/ui'
+} from '@meoofy/api'
+import { cardRoles, colors } from '@meoofy/ui'
 
 import AccountTab from '../../app/(tabs)/account'
 import TabsLayout from '../../app/(tabs)/_layout'
@@ -28,8 +28,8 @@ import { testRootStackLayout } from '../testing/TestRoot'
 import { setWindowWidth } from '../testing/window'
 import { saveDraft } from './draft'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   listPets: jest.fn(),
   getPet: jest.fn(),
   getEntitlement: jest.fn(),
@@ -49,7 +49,7 @@ const mockListPhotos = jest.mocked(listPhotos)
 
 const PET_ID = '2f0c9a64-1b5e-4c6d-8a3f-5d7e9b1c2a40'
 const BANNER = 'You’re offline. Saved information is available.'
-const DRAFT_KEY = 'pawpin.petDraft'
+const DRAFT_KEY = 'meoofy.petDraft'
 
 function pet(fields: Partial<Pet> & Pick<Pet, 'id' | 'name'>): Pet {
   return {

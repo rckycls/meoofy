@@ -1,5 +1,5 @@
 import { router, type Href } from 'expo-router'
-import type { OnboardingPath } from '@pawpin/core'
+import type { OnboardingPath } from '@meoofy/core'
 
 import { local } from '../../storage/local'
 
@@ -10,7 +10,7 @@ import { local } from '../../storage/local'
  */
 export async function rememberPath(path: OnboardingPath): Promise<void> {
   try {
-    await local.set('pawpin.onboardingPath', path)
+    await local.set('meoofy.onboardingPath', path)
   } catch {
     // The choice is lost, and the person is treated as an owner.
   }
@@ -19,7 +19,7 @@ export async function rememberPath(path: OnboardingPath): Promise<void> {
 /** O02 is done: later launches skip onboarding and open sign-in. */
 export async function markOnboardingSeen(): Promise<void> {
   try {
-    await local.set('pawpin.onboardingSeen', 'true')
+    await local.set('meoofy.onboardingSeen', 'true')
   } catch {
     // Onboarding shows again on the next launch, which is harmless.
   }

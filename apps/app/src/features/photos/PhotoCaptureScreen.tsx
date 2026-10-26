@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native'
 import { Redirect, useLocalSearchParams } from 'expo-router'
-import type { Pet } from '@pawpin/api'
-import { parseAppError, type PhotoView } from '@pawpin/core'
-import { Button, Card, ScreenShell, colors, space, textStyle, type } from '@pawpin/ui'
+import type { Pet } from '@meoofy/api'
+import { parseAppError, type PhotoView } from '@meoofy/core'
+import { Button, Card, ScreenShell, colors, space, textStyle, type } from '@meoofy/ui'
 
 import { usePhotoUpload, type PhotoState } from '../../data/usePhotoUpload'
 import { usePet } from '../../data/usePet'

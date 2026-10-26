@@ -71,7 +71,7 @@ const shapes: Record<IconName, ReactNode> = {
   plus: <Path d="M12 5v14M5 12h14" />,
 }
 
-/** The PawPin mark in the top bar: four toes and a pad, outlined. */
+/** The Meoofy mark in the top bar: four toes and a pad, outlined. */
 export function PawMark({ size = 24, color }: { size?: number; color: string }) {
   return (
     <Svg

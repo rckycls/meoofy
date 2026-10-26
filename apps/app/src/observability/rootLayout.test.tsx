@@ -61,7 +61,7 @@ describe('root layout', () => {
     )
   })
 
-  it('uses the PawPin error screen as its route error boundary', () => {
+  it('uses the Meoofy error screen as its route error boundary', () => {
     const { layout, boundary } = loadRootLayout(undefined)
 
     expect(layout.ErrorBoundary).toBe(boundary.ErrorBoundary)

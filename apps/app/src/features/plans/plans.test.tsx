@@ -2,16 +2,16 @@ import { Dimensions, StyleSheet, Text } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { router } from 'expo-router'
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library'
-import { getEntitlement, type Entitlement } from '@pawpin/api'
-import { AppError } from '@pawpin/core'
+import { getEntitlement, type Entitlement } from '@meoofy/api'
+import { AppError } from '@meoofy/core'
 
 import PlansRoute from '../../../app/plans'
 import { fakeClient } from '../../testing/fakeClient'
 import { testRootStackLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   getEntitlement: jest.fn(),
   checkSession: jest.fn(async () => 'unknown'),
 }))

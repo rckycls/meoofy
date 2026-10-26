@@ -5,9 +5,9 @@ import { onlineManager, useQueryClient, type QueryClient } from '@tanstack/react
 import { randomUUID } from 'expo-crypto'
 import { router as appRouter } from 'expo-router'
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library'
-import { createPet, deletePet, getPet, updatePet, type Pet } from '@pawpin/api'
-import { AppError, LIMITS } from '@pawpin/core'
-import { cardRoles, colors, flowTints } from '@pawpin/ui'
+import { createPet, deletePet, getPet, updatePet, type Pet } from '@meoofy/api'
+import { AppError, LIMITS } from '@meoofy/core'
+import { cardRoles, colors, flowTints } from '@meoofy/ui'
 
 import TabsLayout from '../../../app/(tabs)/_layout'
 import AddPetRoute from '../../../app/pets/new'
@@ -20,8 +20,8 @@ import { sentryReports, turnSentryOff } from '../../testing/sentry'
 import { testRootStackLayout } from '../../testing/TestRoot'
 import { setWindowWidth } from '../../testing/window'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   createPet: jest.fn(),
   getPet: jest.fn(),
   updatePet: jest.fn(),

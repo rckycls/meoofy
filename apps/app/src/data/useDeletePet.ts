@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { deletePet } from '@pawpin/api'
+import { deletePet } from '@meoofy/api'
 
 import { useSession } from '../state/SessionProvider'
 

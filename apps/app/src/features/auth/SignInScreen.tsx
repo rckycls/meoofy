@@ -3,9 +3,9 @@ import { Platform, StyleSheet, Text, View } from 'react-native'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { Redirect, router, useLocalSearchParams } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { sendEmailCode, signInWithAppleIdToken, signInWithAppleWeb } from '@pawpin/api'
-import { AppError, parseAppError } from '@pawpin/core'
-import { Button, Field, colors, radii, space, textStyle, type } from '@pawpin/ui'
+import { sendEmailCode, signInWithAppleIdToken, signInWithAppleWeb } from '@meoofy/api'
+import { AppError, parseAppError } from '@meoofy/core'
+import { Button, Field, colors, radii, space, textStyle, type } from '@meoofy/ui'
 
 import { reportHandledError } from '../../observability/sentry'
 import { useSession } from '../../state/SessionProvider'
@@ -145,7 +145,7 @@ export function SignInScreen() {
   }
 
   return (
-    <AuthFrame stickers={['dog', 'paw-pin', 'cat']} title={copy.title} body={copy.body}>
+    <AuthFrame stickers={['dog', 'meoofy', 'cat']} title={copy.title} body={copy.body}>
       {deletion === 'unconfirmed' ? (
         <Text style={styles.note}>{copy.deletionUnconfirmed}</Text>
       ) : null}

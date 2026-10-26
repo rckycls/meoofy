@@ -1,4 +1,4 @@
-import { LIMITS } from '@pawpin/core'
+import { LIMITS } from '@meoofy/core'
 
 import type { PhotoProblem, PhotoState } from '../../data/usePhotoUpload'
 import type { GuidedView } from '../../photo/views'
@@ -59,16 +59,16 @@ export const photosCopy = {
     cancel: 'Cancel',
     starting: 'Starting the camera',
     captureFailed: 'We couldn’t take that photo. Please try again.',
-    // S02: the camera is off for PawPin, so the library takes its place.
+    // S02: the camera is off for Meoofy, so the library takes its place.
     off: {
       title: 'Camera access is off',
-      body: 'PawPin can’t use your camera right now. You can allow it in Settings, or add photos from your library instead.',
+      body: 'Meoofy can’t use your camera right now. You can allow it in Settings, or add photos from your library instead.',
       upload: 'Upload photos instead',
       settings: 'Open Settings',
     },
     unavailable: {
       title: 'Camera isn’t available',
-      body: 'PawPin can’t start the camera on this device. You can add photos from your library instead.',
+      body: 'Meoofy can’t start the camera on this device. You can add photos from your library instead.',
     },
   },
   problems: {

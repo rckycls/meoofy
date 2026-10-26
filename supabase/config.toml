@@ -2,14 +2,14 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "pawpin"
+project_id = "meoofy"
 
 [api]
 enabled = true
 # Port to use for the API URL.
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
-# endpoints. PawPin exposes only `api` (client-callable functions and read views); the module
+# endpoints. Meoofy exposes only `api` (client-callable functions and read views); the module
 # schemas (identity, registry, entitlements, audit, internal) are never exposed. `graphql_public`
 # is left out on purpose: pg_graphql would reflect the module tables as a second read surface.
 schemas = ["api"]
@@ -255,16 +255,16 @@ otp_expiry = 600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
-# PawPin signs in with a 6-digit email code (spec §3), so the sign-in emails carry {{ .Token }}
+# Meoofy signs in with a 6-digit email code (spec §3), so the sign-in emails carry {{ .Token }}
 # and no link. An email sign-in to an existing user sends `magic_link`; `confirmation` covers a
 # new user when email confirmations are on (the hosted default). Changing these needs
 # `supabase stop && supabase start`; the hosted project sets the same templates in the dashboard.
 [auth.email.template.magic_link]
-subject = "Your PawPin sign-in code"
+subject = "Your Meoofy sign-in code"
 content_path = "./supabase/templates/sign-in-code.html"
 
 [auth.email.template.confirmation]
-subject = "Your PawPin sign-in code"
+subject = "Your Meoofy sign-in code"
 content_path = "./supabase/templates/sign-in-code.html"
 
 # Uncomment to customize notification email template
@@ -295,7 +295,7 @@ max_frequency = "5s"
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
-# PawPin: refuses sign-ups whose email is not in identity.pilot_allowlist and logs them in
+# Meoofy: refuses sign-ups whose email is not in identity.pilot_allowlist and logs them in
 # identity.signup_rejections (migration 20261023000007_auth_hook.sql). Changing this block needs
 # `supabase stop && supabase start`; a db reset alone does not reconfigure the auth container.
 [auth.hook.before_user_created]
@@ -409,8 +409,8 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
-# PawPin: both functions check their caller themselves. delete-account verifies the user's JWT with
-# Auth and answers 401 {"error":"PAWPIN:UNAUTHENTICATED"}; storage-cleanup (called by pg_cron, see
+# Meoofy: both functions check their caller themselves. delete-account verifies the user's JWT with
+# Auth and answers 401 {"error":"MEOOFY:UNAUTHENTICATED"}; storage-cleanup (called by pg_cron, see
 # migration 20261023000008_cleanup.sql) accepts only the service role key. The gateway's own JWT
 # check is off so a call without a valid JWT gets the app's error body instead of the gateway's.
 [functions.delete-account]

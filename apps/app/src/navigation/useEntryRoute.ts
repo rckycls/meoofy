@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getProfile } from '@pawpin/api'
-import { onboardingPathSchema, parseAppError, type OnboardingPath } from '@pawpin/core'
+import { getProfile } from '@meoofy/api'
+import { onboardingPathSchema, parseAppError, type OnboardingPath } from '@meoofy/core'
 
 import { confirmSession } from '../state/sessionCheck'
 import { useSession } from '../state/SessionProvider'
@@ -13,8 +13,8 @@ type DeviceState = { onboardingSeen: boolean; pendingOnboardingPath: OnboardingP
 async function readDeviceState(): Promise<DeviceState> {
   try {
     const [seen, path] = await Promise.all([
-      local.get('pawpin.onboardingSeen'),
-      local.get('pawpin.onboardingPath'),
+      local.get('meoofy.onboardingSeen'),
+      local.get('meoofy.onboardingPath'),
     ])
     const parsed = onboardingPathSchema.safeParse(path)
     return {

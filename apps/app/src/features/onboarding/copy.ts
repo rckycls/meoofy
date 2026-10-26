@@ -1,5 +1,5 @@
 export const onboardingCopy = {
-  brand: 'PawPin',
+  brand: 'Meoofy',
   welcome: {
     title: 'Every pet deserves a way home.',
     body: 'Register your dog or cat once. Their details stay private until the day you need help.',
@@ -20,7 +20,7 @@ export const onboardingCopy = {
     body: 'Three promises we keep for every pet and every finder.',
     promises: [
       'Owners choose what finders see.',
-      'Contact stays inside PawPin.',
+      'Contact stays inside Meoofy.',
       'No account needed to scan.',
     ],
     primary: 'Sounds good',
@@ -30,7 +30,7 @@ export const onboardingCopy = {
     body: 'Add your first pet. It takes about two minutes and stays private.',
     card: { title: 'Add a dog or cat', body: 'Photos, name and a few details' },
     primary: 'Add my first pet',
-    secondary: 'Explore PawPin',
+    secondary: 'Explore Meoofy',
   },
 } as const
 

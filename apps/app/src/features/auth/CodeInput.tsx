@@ -1,6 +1,6 @@
 import { useImperativeHandle, useRef, useState, type ComponentRef, type Ref } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
-import { cardRoles, colors, radii, space, textStyle, type } from '@pawpin/ui'
+import { cardRoles, colors, radii, space, textStyle, type } from '@meoofy/ui'
 
 import { CODE_LENGTH } from './validation'
 

@@ -11,16 +11,16 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import * as SecureStore from 'expo-secure-store'
-import { checkSession } from '@pawpin/api'
-import { AppError } from '@pawpin/core'
+import { checkSession } from '@meoofy/api'
+import { AppError } from '@meoofy/core'
 
 import { fakeClient } from '../testing/fakeClient'
 import { TestProviders } from '../testing/TestRoot'
 import { retryQuery, shouldPersistQuery } from './QueryProvider'
 import { sessionStorageFor, useSession } from './SessionProvider'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   checkSession: jest.fn(),
 }))
 const mockCheckSession = jest.mocked(checkSession)
@@ -354,7 +354,7 @@ describe('QueryProvider', () => {
     const savedWith = (marker: string) => {
       // Earlier tests' throttled saves can still land, so look for this test's own data.
       const write = setItem.mock.calls.find(
-        ([key, value]) => key === 'pawpin.queryCache' && value.includes(marker),
+        ([key, value]) => key === 'meoofy.queryCache' && value.includes(marker),
       )?.[1]
       if (write === undefined) throw new Error('not saved yet')
       return JSON.parse(write) as Saved
@@ -385,7 +385,7 @@ describe('QueryProvider', () => {
     const setItem = jest.mocked(AsyncStorage.setItem)
     setItem.mockClear()
     const cacheWrites = () =>
-      setItem.mock.calls.filter(([key]) => key === 'pawpin.queryCache').map(([, value]) => value)
+      setItem.mock.calls.filter(([key]) => key === 'meoofy.queryCache').map(([, value]) => value)
 
     const fake = fakeClient({ userId: 'u1' })
     await render(
@@ -471,7 +471,7 @@ describe('QueryProvider', () => {
       () => {
         // Earlier tests' throttled saves can still land, so look for this test's pets.
         const write = setItem.mock.calls.find(
-          ([key, value]) => key === 'pawpin.queryCache' && value.includes('pet-refresh-failed'),
+          ([key, value]) => key === 'meoofy.queryCache' && value.includes('pet-refresh-failed'),
         )?.[1]
         if (write === undefined) throw new Error('not saved yet')
         return JSON.parse(write) as Saved

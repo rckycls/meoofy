@@ -1,8 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { Redirect, router, useLocalSearchParams } from 'expo-router'
-import type { Pet } from '@pawpin/api'
-import { formatAge, parseAppError } from '@pawpin/core'
+import type { Pet } from '@meoofy/api'
+import { formatAge, parseAppError } from '@meoofy/core'
 import {
   Button,
   Card,
@@ -14,7 +14,7 @@ import {
   space,
   textStyle,
   type,
-} from '@pawpin/ui'
+} from '@meoofy/ui'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useDeletePet } from '../../data/useDeletePet'

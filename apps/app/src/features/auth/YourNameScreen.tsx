@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Redirect, router, useLocalSearchParams } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { AppError, codePointLength, displayNameSchema, parseAppError } from '@pawpin/core'
-import { Button, Field } from '@pawpin/ui'
+import { AppError, codePointLength, displayNameSchema, parseAppError } from '@meoofy/core'
+import { Button, Field } from '@meoofy/ui'
 
 import { useProfile } from '../../data/useProfile'
 import { reportHandledError } from '../../observability/sentry'

@@ -7,7 +7,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
-import type { OnboardingPath } from '@pawpin/core'
+import type { OnboardingPath } from '@meoofy/core'
 import {
   Button,
   colors,
@@ -17,7 +17,7 @@ import {
   textStyle,
   type,
   useMotionPreference,
-} from '@pawpin/ui'
+} from '@meoofy/ui'
 
 import { onboardingCopy } from './copy'
 import { TwoPathsHero } from './heroes'

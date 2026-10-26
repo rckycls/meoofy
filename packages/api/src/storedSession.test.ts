@@ -3,7 +3,7 @@
 // though the session is still stored and nobody has refused it; the app opens on that person's
 // saved data meanwhile.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createPawpinClient, readStoredSession, signOut, type SessionStorage } from './index'
+import { createMeoofyClient, readStoredSession, signOut, type SessionStorage } from './index'
 import { offline, stubClient } from './testSupport'
 
 const URL = 'http://stub.test'
@@ -35,7 +35,7 @@ function memoryStorage(items: Record<string, string> = {}) {
 }
 
 function clientWith(items: Record<string, string>) {
-  return createPawpinClient({
+  return createMeoofyClient({
     url: URL,
     anonKey: 'stub-anon-key',
     storage: memoryStorage(items).storage,
@@ -113,7 +113,7 @@ describe('readStoredSession', () => {
     }
 
     let locked = false
-    const flaky = createPawpinClient({
+    const flaky = createMeoofyClient({
       url: URL,
       anonKey: 'stub-anon-key',
       storage: {

@@ -30,18 +30,18 @@ $$;
 grant execute on function tests.upload(text) to authenticated;
 
 -- A second bucket, to prove orphans are looked for in pet-photos only.
-insert into storage.buckets (id, name) values ('pawpin-test-cleanup', 'pawpin-test-cleanup');
+insert into storage.buckets (id, name) values ('meoofy-test-cleanup', 'meoofy-test-cleanup');
 
 do $$
 declare
-  a constant uuid := tests.create_user('cleanup-a@pawpin.test');
+  a constant uuid := tests.create_user('cleanup-a@meoofy.test');
   pet constant uuid := 'a6000000-0000-4000-8000-000000000001';
   dir constant text := a || '/' || pet || '/';
 begin
-  perform set_config('pawpin.a', a::text, true);
-  perform set_config('pawpin.pet', pet::text, true);
-  -- pawpin.<key>: the storage path {owner}/{pet}/{photo}.jpg of each file in this test.
-  perform set_config('pawpin.' || v.k, dir || 'a6000000-0000-4000-8000-00000000' || v.ph || '.jpg', true)
+  perform set_config('meoofy.a', a::text, true);
+  perform set_config('meoofy.pet', pet::text, true);
+  -- meoofy.<key>: the storage path {owner}/{pet}/{photo}.jpg of each file in this test.
+  perform set_config('meoofy.' || v.k, dir || 'a6000000-0000-4000-8000-00000000' || v.ph || '.jpg', true)
      from (values ('old', 'f001'),     -- pending, created 25 h ago, file uploaded
                   ('fresh', 'f002'),   -- pending, created 1 h ago
                   ('ready', 'f003'),   -- ready, created 25 h ago, file uploaded
@@ -54,28 +54,28 @@ begin
   insert into registry.pets (id, owner_id, name, species) values (pet, a, 'Milo', 'dog');
   insert into registry.pet_photos (id, pet_id, owner_id, view, storage_path, bytes, status,
                                    created_at, width, height, confirmed_at)
-  values ('a6000000-0000-4000-8000-00000000f001', pet, a, 'front', current_setting('pawpin.old'),
+  values ('a6000000-0000-4000-8000-00000000f001', pet, a, 'front', current_setting('meoofy.old'),
           1000, 'pending', now() - interval '25 hours', null, null, null),
-         ('a6000000-0000-4000-8000-00000000f002', pet, a, 'side', current_setting('pawpin.fresh'),
+         ('a6000000-0000-4000-8000-00000000f002', pet, a, 'side', current_setting('meoofy.fresh'),
           1000, 'pending', now() - interval '1 hour', null, null, null),
-         ('a6000000-0000-4000-8000-00000000f003', pet, a, 'markings', current_setting('pawpin.ready'),
+         ('a6000000-0000-4000-8000-00000000f003', pet, a, 'markings', current_setting('meoofy.ready'),
           1000, 'ready', now() - interval '25 hours', 1600, 1200, now() - interval '25 hours');
 
   insert into storage.objects (bucket_id, name, owner_id)
-  values ('pet-photos', current_setting('pawpin.old'), a::text),
-         ('pet-photos', current_setting('pawpin.ready'), a::text),
-         ('pet-photos', current_setting('pawpin.orphan'), a::text),
-         ('pet-photos', current_setting('pawpin.queued'), a::text),
-         ('pawpin-test-cleanup', current_setting('pawpin.other'), a::text);
+  values ('pet-photos', current_setting('meoofy.old'), a::text),
+         ('pet-photos', current_setting('meoofy.ready'), a::text),
+         ('pet-photos', current_setting('meoofy.orphan'), a::text),
+         ('pet-photos', current_setting('meoofy.queued'), a::text),
+         ('meoofy-test-cleanup', current_setting('meoofy.other'), a::text);
 
-  insert into registry.storage_deletions (storage_path) values (current_setting('pawpin.queued'));
+  insert into registry.storage_deletions (storage_path) values (current_setting('meoofy.queued'));
 end
 $$;
 
 -- How many queue rows hold `key`'s path.
 create function pg_temp.queued(key text) returns integer language sql as $$
   select count(*)::int from registry.storage_deletions
-   where storage_path = current_setting('pawpin.' || key)
+   where storage_path = current_setting('meoofy.' || key)
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ select results_eq(
 select has_index('registry', 'storage_deletions', 'storage_deletions_storage_path_idx',
   'storage_path', 'queue rows are found by path through an index (request_photo_upload, the orphan scan)');
 
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 select throws_ok($$ select api.record_account_deleted() $$, '42501', null,
   'authenticated cannot call api.record_account_deleted');
 select throws_ok($$ select api.enqueue_stale_photos() $$, '42501', null,
@@ -187,7 +187,7 @@ select is(pg_temp.queued('queued'), 1, 'a file that is already queued is not que
 select is(pg_temp.queued('other'), 0, 'files in other buckets are left alone');
 select results_eq(
   $$ select id::text, status::text from registry.pet_photos
-      where pet_id = current_setting('pawpin.pet')::uuid order by id $$,
+      where pet_id = current_setting('meoofy.pet')::uuid order by id $$,
   $$ values ('a6000000-0000-4000-8000-00000000f002', 'pending'),
             ('a6000000-0000-4000-8000-00000000f003', 'ready') $$,
   'the expired pending row is deleted, freeing its slot; the fresh pending and ready rows stay'
@@ -200,7 +200,7 @@ select is(registry.enqueue_stale_photos(), 0, 'a second run finds nothing new to
 
 -- Only this file's rows from here on: a used database may hold other orphan files.
 delete from registry.storage_deletions
- where storage_path not like current_setting('pawpin.a') || '/%';
+ where storage_path not like current_setting('meoofy.a') || '/%';
 
 -- ---------------------------------------------------------------------------
 -- claim_storage_deletions
@@ -209,14 +209,14 @@ create temp table claimed as select * from registry.claim_storage_deletions(10);
 
 select results_eq(
   $$ select storage_path, attempts from claimed order by storage_path $$,
-  $$ values (current_setting('pawpin.old'), 1), (current_setting('pawpin.orphan'), 1),
-            (current_setting('pawpin.queued'), 1) $$,
+  $$ values (current_setting('meoofy.old'), 1), (current_setting('meoofy.orphan'), 1),
+            (current_setting('meoofy.queued'), 1) $$,
   'claim_storage_deletions(10) hands out every queued row with attempts incremented'
 );
 select results_eq(
   $$ select storage_path, attempts from registry.storage_deletions order by storage_path $$,
-  $$ values (current_setting('pawpin.old'), 1), (current_setting('pawpin.orphan'), 1),
-            (current_setting('pawpin.queued'), 1) $$,
+  $$ values (current_setting('meoofy.old'), 1), (current_setting('meoofy.orphan'), 1),
+            (current_setting('meoofy.queued'), 1) $$,
   'the queue rows stay (until completed) with attempts incremented'
 );
 select is((select count(*)::int from registry.claim_storage_deletions(2)), 2,
@@ -224,7 +224,7 @@ select is((select count(*)::int from registry.claim_storage_deletions(2)), 2,
 -- old and queued now have 2 attempts, orphan 1.
 select results_eq(
   $$ select storage_path, attempts from registry.claim_storage_deletions(1) $$,
-  $$ values (current_setting('pawpin.orphan'), 2) $$,
+  $$ values (current_setting('meoofy.orphan'), 2) $$,
   'the rows tried least are handed out first, so a failing file cannot starve the others'
 );
 select throws_ok($$ select * from registry.claim_storage_deletions(0) $$, '22023', null,
@@ -237,12 +237,12 @@ select throws_ok($$ select * from registry.claim_storage_deletions(null) $$, '22
 -- ---------------------------------------------------------------------------
 -- Otherwise a reused id could be confirmed against the old file between a claim and its removal,
 -- and cleanup would then delete the file behind a ready photo.
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 select is(
   api.request_photo_upload('a6000000-0000-4000-8000-00000000f007',
-    current_setting('pawpin.pet')::uuid, 'extra', 'image/jpeg', 1000),
-  current_setting('pawpin.reused'), 'A opens an upload slot');
-select tests.upload(current_setting('pawpin.reused'));
+    current_setting('meoofy.pet')::uuid, 'extra', 'image/jpeg', 1000),
+  current_setting('meoofy.reused'), 'A opens an upload slot');
+select tests.upload(current_setting('meoofy.reused'));
 select is(
   (select status::text from api.confirm_photo('a6000000-0000-4000-8000-00000000f007', 1600, 1200, 120, 120)),
   'ready', 'A confirms the photo');
@@ -250,12 +250,12 @@ select lives_ok($$ select api.delete_photo('a6000000-0000-4000-8000-00000000f007
   'A deletes the photo, which queues its path');
 select throws_ok(
   $$ select api.request_photo_upload('a6000000-0000-4000-8000-00000000f007',
-       current_setting('pawpin.pet')::uuid, 'extra', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'while its path is queued, the same photo id is refused');
+       current_setting('meoofy.pet')::uuid, 'extra', 'image/jpeg', 1000) $$,
+  'P0001', 'MEOOFY:VALIDATION', 'while its path is queued, the same photo id is refused');
 select throws_ok(
   $$ select api.request_photo_upload('a6000000-0000-4000-8000-00000000f007',
-       current_setting('pawpin.pet')::uuid, 'front', 'image/jpeg', 1000) $$,
-  'P0001', 'PAWPIN:VALIDATION', 'for any view');
+       current_setting('meoofy.pet')::uuid, 'front', 'image/jpeg', 1000) $$,
+  'P0001', 'MEOOFY:VALIDATION', 'for any view');
 select tests.clear_auth();
 
 select results_eq(
@@ -272,20 +272,20 @@ do $$
 begin
   perform set_config('storage.allow_delete_query', 'true', true);
   delete from storage.objects
-   where bucket_id = 'pet-photos' and name = current_setting('pawpin.reused');
+   where bucket_id = 'pet-photos' and name = current_setting('meoofy.reused');
   perform set_config('storage.allow_delete_query', 'false', true);
   perform registry.complete_storage_deletions(
     array(select d.id from registry.storage_deletions d
-           where d.storage_path = current_setting('pawpin.reused')),
+           where d.storage_path = current_setting('meoofy.reused')),
     null);
 end
 $$;
 
-select tests.authenticate_as(current_setting('pawpin.a')::uuid);
+select tests.authenticate_as(current_setting('meoofy.a')::uuid);
 select is(
   api.request_photo_upload('a6000000-0000-4000-8000-00000000f007',
-    current_setting('pawpin.pet')::uuid, 'extra', 'image/jpeg', 1000),
-  current_setting('pawpin.reused'),
+    current_setting('meoofy.pet')::uuid, 'extra', 'image/jpeg', 1000),
+  current_setting('meoofy.reused'),
   'once cleanup has removed the file and completed its row, the id can be used again');
 select tests.clear_auth();
 
@@ -294,18 +294,18 @@ select tests.clear_auth();
 -- ---------------------------------------------------------------------------
 -- The api functions no longer queue such a path (Ruling 26), but a queue row written before that
 -- rule, or by hand, can still name one.
-insert into registry.storage_deletions (storage_path) values (current_setting('pawpin.reused'));
+insert into registry.storage_deletions (storage_path) values (current_setting('meoofy.reused'));
 
 create temp table claimed_after_reuse as select * from registry.claim_storage_deletions(10);
 
 select is((select count(*)::int from claimed_after_reuse
-            where storage_path = current_setting('pawpin.reused')), 0,
+            where storage_path = current_setting('meoofy.reused')), 0,
   'claim_storage_deletions does not hand out a path a photo row references');
 select is(pg_temp.queued('reused'), 0, 'and drops that queue row');
 select results_eq(
   $$ select storage_path from claimed_after_reuse order by storage_path $$,
-  $$ values (current_setting('pawpin.old')), (current_setting('pawpin.orphan')),
-            (current_setting('pawpin.queued')) $$,
+  $$ values (current_setting('meoofy.old')), (current_setting('meoofy.orphan')),
+            (current_setting('meoofy.queued')) $$,
   'the other queued rows are still handed out'
 );
 select results_eq(
@@ -318,30 +318,30 @@ select results_eq(
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  perform set_config('pawpin.id_' || k, (
+  perform set_config('meoofy.id_' || k, (
     select d.id::text from registry.storage_deletions d
-     where d.storage_path = current_setting('pawpin.' || k)), true)
+     where d.storage_path = current_setting('meoofy.' || k)), true)
      from unnest(array['old', 'orphan', 'queued']) k;
 end
 $$;
 
 select lives_ok(
   format($$ select registry.complete_storage_deletions(array[%s, %s]::bigint[], %L::jsonb) $$,
-         current_setting('pawpin.id_old'), current_setting('pawpin.id_orphan'),
-         jsonb_build_array(jsonb_build_object('id', current_setting('pawpin.id_queued')::bigint,
+         current_setting('meoofy.id_old'), current_setting('meoofy.id_orphan'),
+         jsonb_build_array(jsonb_build_object('id', current_setting('meoofy.id_queued')::bigint,
                                               'error', 'storage said no'))),
   'complete_storage_deletions takes the removed ids and the failures');
 -- queued was handed out by the first claim, the claim of 2 and the claim after the reuse.
 select results_eq(
   $$ select storage_path, attempts, last_error from registry.storage_deletions $$,
-  $$ values (current_setting('pawpin.queued'), 3, 'storage said no') $$,
+  $$ values (current_setting('meoofy.queued'), 3, 'storage said no') $$,
   'removed rows leave the queue; a failed row stays with its error for the next run'
 );
 select lives_ok($$ select registry.complete_storage_deletions(null, null) $$,
   'nothing done and nothing failed is a no-op');
 select results_eq(
   $$ select storage_path, attempts, last_error from registry.storage_deletions $$,
-  $$ values (current_setting('pawpin.queued'), 3, 'storage said no') $$,
+  $$ values (current_setting('meoofy.queued'), 3, 'storage said no') $$,
   'the no-op changes nothing'
 );
 select throws_ok(
@@ -353,7 +353,7 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  perform set_config('pawpin.last_event', coalesce(max(id), 0)::text, true) from audit.events;
+  perform set_config('meoofy.last_event', coalesce(max(id), 0)::text, true) from audit.events;
 end
 $$;
 
@@ -369,7 +369,7 @@ reset role;
 select is(pg_temp.queued('old') + pg_temp.queued('orphan'), 2,
   'files still in storage after their queue rows completed are queued again');
 delete from registry.storage_deletions
- where storage_path not like current_setting('pawpin.a') || '/%';
+ where storage_path not like current_setting('meoofy.a') || '/%';
 
 set local role service_role;
 create temp table claimed_by_service as select * from api.claim_storage_deletions(10);
@@ -377,20 +377,20 @@ reset role;
 
 select results_eq(
   $$ select storage_path from claimed_by_service order by storage_path $$,
-  $$ values (current_setting('pawpin.old')), (current_setting('pawpin.orphan')),
-            (current_setting('pawpin.queued')) $$,
+  $$ values (current_setting('meoofy.old')), (current_setting('meoofy.orphan')),
+            (current_setting('meoofy.queued')) $$,
   'service_role claims through api.claim_storage_deletions, which returns id and storage_path'
 );
 
 do $$
 begin
-  perform set_config('pawpin.claimed_ids', (select array_agg(id)::text from claimed_by_service), true);
+  perform set_config('meoofy.claimed_ids', (select array_agg(id)::text from claimed_by_service), true);
 end
 $$;
 set local role service_role;
 select lives_ok(
   format($$ select api.complete_storage_deletions(%L::bigint[], '[]') $$,
-         current_setting('pawpin.claimed_ids')),
+         current_setting('meoofy.claimed_ids')),
   'service_role completes through api.complete_storage_deletions');
 reset role;
 
@@ -399,7 +399,7 @@ select is((select count(*)::int from registry.storage_deletions), 0,
 
 select results_eq(
   $$ select actor_id, action, subject_type, subject_id, metadata from audit.events
-      where id > current_setting('pawpin.last_event')::bigint $$,
+      where id > current_setting('meoofy.last_event')::bigint $$,
   $$ values (null::uuid, 'account.deleted', 'user', null::uuid, '{}'::jsonb) $$,
   'api.record_account_deleted writes one account.deleted event with no actor, subject or metadata'
 );
@@ -430,15 +430,15 @@ select is(pg_temp.run_cleanup_job(), 0,
 
 do $$
 begin
-  perform vault.create_secret('http://cleanup.pawpin.test', 'project_url');
+  perform vault.create_secret('http://cleanup.meoofy.test', 'project_url');
   perform vault.create_secret('test-service-role-key', 'service_role_key');
 end
 $$;
 select is(pg_temp.run_cleanup_job(), 1, 'with both secrets the job sends one request');
 select results_eq(
   $$ select method::text, url, headers ->> 'Authorization', headers ->> 'Content-Type'
-       from net.http_request_queue where url like 'http://cleanup.pawpin.test/%' $$,
-  $$ values ('POST', 'http://cleanup.pawpin.test/functions/v1/storage-cleanup',
+       from net.http_request_queue where url like 'http://cleanup.meoofy.test/%' $$,
+  $$ values ('POST', 'http://cleanup.meoofy.test/functions/v1/storage-cleanup',
              'Bearer test-service-role-key', 'application/json') $$,
   'the request is a POST to the storage-cleanup function carrying the service role key'
 );
@@ -461,7 +461,7 @@ do $$
 declare
   conn text;
 begin
-  perform set_config('pawpin.race', 'pawpin-race-' || gen_random_uuid(), true);
+  perform set_config('meoofy.race', 'meoofy-race-' || gen_random_uuid(), true);
   foreach conn in array array['setup', 's1', 's2'] loop
     perform extensions.dblink_connect(conn,
       format('host=%s port=%s dbname=%s user=postgres password=postgres',
@@ -471,7 +471,7 @@ begin
   perform extensions.dblink_exec('setup', format(
     $q$ insert into registry.storage_deletions (storage_path, requested_at)
         values (%L, '2000-01-01'), (%L, '2000-01-01') $q$,
-    current_setting('pawpin.race') || '/1.jpg', current_setting('pawpin.race') || '/2.jpg'));
+    current_setting('meoofy.race') || '/1.jpg', current_setting('meoofy.race') || '/2.jpg'));
   perform extensions.dblink_exec('s1', 'begin');
   perform extensions.dblink_exec('s2', 'begin');
 end
@@ -481,12 +481,12 @@ select results_eq(
   $$ select storage_path from extensions.dblink('s1',
        'select storage_path from registry.claim_storage_deletions(2)') as t(storage_path text)
       order by storage_path $$,
-  $$ values (current_setting('pawpin.race') || '/1.jpg'), (current_setting('pawpin.race') || '/2.jpg') $$,
+  $$ values (current_setting('meoofy.race') || '/1.jpg'), (current_setting('meoofy.race') || '/2.jpg') $$,
   'a first session claims both committed rows and holds them until it ends');
 select is(
   (select count(*)::int from extensions.dblink('s2',
      'select storage_path from registry.claim_storage_deletions(2)') as t(storage_path text)
-    where storage_path like current_setting('pawpin.race') || '/%'),
+    where storage_path like current_setting('meoofy.race') || '/%'),
   0, 'a concurrent claim skips the locked rows instead of waiting for them');
 
 do $$
@@ -495,7 +495,7 @@ begin
   perform extensions.dblink_exec('s2', 'rollback');
   perform extensions.dblink_exec('setup', format(
     $q$ delete from registry.storage_deletions where storage_path like %L $q$,
-    current_setting('pawpin.race') || '/%'));
+    current_setting('meoofy.race') || '/%'));
   perform extensions.dblink_disconnect(conn) from unnest(array['setup', 's1', 's2']) conn;
 end
 $$;

@@ -1,4 +1,4 @@
-import { AppError, parseAppError } from '@pawpin/core'
+import { AppError, parseAppError } from '@meoofy/core'
 import { describe, expect, it } from 'vitest'
 import { normalizeSupabaseError, toAppError, withStatus } from './errors'
 import { listPets } from './pets'
@@ -17,14 +17,14 @@ describe('normalizeSupabaseError: network failures become a fetch TypeError', ()
   }
 
   it('auth-js AuthRetryableFetchError (fetch failed)', async () => {
-    const { error } = await stubClient(offline).auth.signInWithOtp({ email: 'a@pawpin.test' })
+    const { error } = await stubClient(offline).auth.signInWithOtp({ email: 'a@meoofy.test' })
     expect(error?.name).toBe('AuthRetryableFetchError')
     expectNetwork(error)
   })
 
   it('auth-js AuthRetryableFetchError (5xx)', async () => {
     const { error } = await stubClient(respond(503, { msg: 'unavailable' })).auth.signInWithOtp({
-      email: 'a@pawpin.test',
+      email: 'a@meoofy.test',
     })
     expect(error?.name).toBe('AuthRetryableFetchError')
     expectNetwork(error)
@@ -158,7 +158,7 @@ describe('normalizeSupabaseError: other Auth answers', () => {
         error_code: 'otp_expired',
         msg: 'Token has expired or is invalid',
       }),
-    ).auth.verifyOtp({ email: 'a@pawpin.test', token: '000000', type: 'email' })
+    ).auth.verifyOtp({ email: 'a@meoofy.test', token: '000000', type: 'email' })
     expect(error?.code).toBe('otp_expired')
     expect(codeOf(error)).toBe('UNAUTHENTICATED')
   })
@@ -170,7 +170,7 @@ describe('normalizeSupabaseError: other Auth answers', () => {
         error_code: 'over_email_send_rate_limit',
         msg: 'email rate limit exceeded',
       }),
-    ).auth.signInWithOtp({ email: 'a@pawpin.test' })
+    ).auth.signInWithOtp({ email: 'a@meoofy.test' })
     expect(error?.status).toBe(429)
     const parsed = parseAppError(normalizeSupabaseError(error))
     expect(parsed.code).toBe('RATE_LIMITED')
@@ -180,17 +180,17 @@ describe('normalizeSupabaseError: other Auth answers', () => {
   it('the allowlist hook refusal stays INVITE_ONLY', async () => {
     const { error } = await stubClient(
       respond(403, { code: 403, error_code: 'unknown', msg: 'This pilot is invite-only' }),
-    ).auth.signInWithOtp({ email: 'stranger@pawpin.test' })
+    ).auth.signInWithOtp({ email: 'stranger@meoofy.test' })
     expect(codeOf(error)).toBe('INVITE_ONLY')
   })
 })
 
 describe('normalizeSupabaseError: everything else passes through', () => {
-  it('keeps a PAWPIN:<CODE> server error as is, whatever its status', () => {
-    const validation = { code: 'P0001', message: 'PAWPIN:VALIDATION', status: 400 }
+  it('keeps a MEOOFY:<CODE> server error as is, whatever its status', () => {
+    const validation = { code: 'P0001', message: 'MEOOFY:VALIDATION', status: 400 }
     expect(normalizeSupabaseError(validation)).toBe(validation)
     expect(codeOf(validation)).toBe('VALIDATION')
-    expect(codeOf({ message: 'PAWPIN:NOT_OWNER', status: 401 })).toBe('NOT_OWNER')
+    expect(codeOf({ message: 'MEOOFY:NOT_OWNER', status: 401 })).toBe('NOT_OWNER')
   })
 
   it('returns unrecognised values unchanged', () => {

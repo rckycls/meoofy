@@ -1,13 +1,13 @@
-# PawPin — Sub-project 1: App Foundation and Private Registry
+# Meoofy — Sub-project 1: App Foundation and Private Registry
 
 **Date:** 2026-10-23
 **Status:** Draft for review
-**Parent product spec:** [`docs/product/pawpin-design-spec.md`](../../product/pawpin-design-spec.md)
-**Design source:** `../outputs/pawpin-ui-ux.fig` (OpenPencil). Boards 00 (library), 08 (onboarding), 01 (owner registration), 05 (resilience), 06/07 (web), 09 (stickers) and 10 (motion).
+**Parent product spec:** [`docs/product/meoofy-design-spec.md`](../../product/meoofy-design-spec.md)
+**Design source:** `../outputs/meoofy-ui-ux.fig` (OpenPencil). Boards 00 (library), 08 (onboarding), 01 (owner registration), 05 (resilience), 06/07 (web), 09 (stickers) and 10 (motion).
 
 ## 1. Intent and success criteria
 
-PawPin's first build puts the designed experience into a real app. Owners can sign up and privately register their dogs and cats with reference photos on iOS and the web. This is the foundation every later sub-project builds on: recovery, finder scan, alerts and messaging.
+Meoofy's first build puts the designed experience into a real app. Owners can sign up and privately register their dogs and cats with reference photos on iOS and the web. This is the foundation every later sub-project builds on: recovery, finder scan, alerts and messaging.
 
 This sub-project is done when all of these are true:
 
@@ -50,13 +50,13 @@ Missing reports and Discovery Mode, the finder scan and photo matching, nearby a
 | Backend | Supabase: Postgres, Auth, Storage, Edge Functions, Cron | User preference. Relational, as the product spec requires. Fits the US$200/month target. |
 | Sign-in | Sign in with Apple plus a 6-digit email one-time code | Matches the O01 and F08 designs. No passwords to store or reset. |
 | Tiers | Server-enforced limits, no purchases | Limit logic exists from day one. Billing waits for the operations phase. |
-| Repository | `/Users/rockycelis/Documents/Codex/2026-10-23/i/pawpin`, pnpm workspace | Next to the designs. pnpm runs with hoisted `node_modules` for Expo compatibility. |
+| Repository | `/Users/rockycelis/Documents/Codex/2026-10-23/i/meoofy`, pnpm workspace | Next to the designs. pnpm runs with hoisted `node_modules` for Expo compatibility. |
 | Web hosting | EAS Hosting (static export) | Same vendor as the iOS builds. No extra platform. |
 
 ## 4. Architecture
 
 ```
-pawpin/
+meoofy/
 ├─ apps/app/              Expo Router app (iOS + web)
 ├─ packages/ui/           tokens, primitives, stickers, motion
 ├─ packages/core/         domain types, validation, tier rules, error codes (pure, no I/O)
@@ -115,7 +115,7 @@ Storage: one private bucket, `pet-photos`.
 - **Select policy:** the path starts with `auth.uid()/`.
 - **Update and delete:** no client policies. Deletion happens only through the cleanup job or the `delete-account` function, using the service role.
 
-Errors reach clients as Postgres exceptions with a stable `PAWPIN:<CODE>` message prefix. `packages/api` parses them into a typed `AppError { code, retryable }`.
+Errors reach clients as Postgres exceptions with a stable `MEOOFY:<CODE>` message prefix. `packages/api` parses them into a typed `AppError { code, retryable }`.
 
 ## 7. Reference photo pipeline
 

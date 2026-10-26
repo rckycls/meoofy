@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react-native'
-import { parseAppError } from '@pawpin/core'
+import { parseAppError } from '@meoofy/core'
 
 import { scrubBreadcrumb, scrubEvent } from './scrub'
 

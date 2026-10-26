@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { Redirect, Tabs, router, usePathname } from 'expo-router'
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context'
-import { TabBar, WebNav, colors, type NavKey } from '@pawpin/ui'
+import { TabBar, WebNav, colors, type NavKey } from '@meoofy/ui'
 
 import { useRecordOnboardingPath } from '../../src/features/onboarding/useRecordOnboardingPath'
 import { useLayoutMode } from '../../src/layout/layoutMode'

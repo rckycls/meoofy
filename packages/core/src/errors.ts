@@ -1,6 +1,6 @@
 /**
  * The nine error codes the app understands. Server codes are raised by the
- * database as `PAWPIN:<CODE>`; `INVITE_ONLY`, `NETWORK` and `UNKNOWN` are
+ * database as `MEOOFY:<CODE>`; `INVITE_ONLY`, `NETWORK` and `UNKNOWN` are
  * produced on the client.
  */
 export const ERROR_CODES = [
@@ -32,7 +32,7 @@ export class AppError extends Error {
   }
 }
 
-const SERVER_CODE = /PAWPIN:([A-Z_]+)/
+const SERVER_CODE = /MEOOFY:([A-Z_]+)/
 const NETWORK_MESSAGE = /network request failed|failed to fetch|load failed|networkerror/i
 const JWT_MESSAGE = /\bjwt\b/i
 

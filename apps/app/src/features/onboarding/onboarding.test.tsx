@@ -2,8 +2,8 @@ import { Dimensions, StyleSheet, Text } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useReducedMotion } from 'react-native-reanimated'
 import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library'
-import { completeOnboarding, getProfile, type Profile } from '@pawpin/api'
-import { AppError } from '@pawpin/core'
+import { completeOnboarding, getProfile, type Profile } from '@meoofy/api'
+import { AppError } from '@meoofy/core'
 
 import OnboardingLayout from '../../../app/(onboarding)/_layout'
 import AllSet from '../../../app/(onboarding)/all-set'
@@ -18,8 +18,8 @@ import { setWindowWidth } from '../../testing/window'
 import { allSetTitle, onboardingCopy } from './copy'
 import { stepTransition } from './transition'
 
-jest.mock('@pawpin/api', () => ({
-  ...jest.requireActual('@pawpin/api'),
+jest.mock('@meoofy/api', () => ({
+  ...jest.requireActual('@meoofy/api'),
   getProfile: jest.fn(),
   completeOnboarding: jest.fn(),
   checkSession: jest.fn(),
@@ -146,7 +146,7 @@ describe('O00 welcome', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'I found a pet' }))
 
     await waitFor(() => expect(router.getPathname()).toBe('/privacy'))
-    expect(await AsyncStorage.getItem('pawpin.onboardingPath')).toBe('finder')
+    expect(await AsyncStorage.getItem('meoofy.onboardingPath')).toBe('finder')
   })
 })
 
@@ -197,7 +197,7 @@ describe('O01 choose your path', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Continue' }))
 
     await waitFor(() => expect(router.getPathname()).toBe('/privacy'))
-    expect(await AsyncStorage.getItem('pawpin.onboardingPath')).toBe('finder')
+    expect(await AsyncStorage.getItem('meoofy.onboardingPath')).toBe('finder')
   })
 
   it('stores the owner path when the default is kept', async () => {
@@ -206,7 +206,7 @@ describe('O01 choose your path', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Continue' }))
 
     await waitFor(() => expect(router.getPathname()).toBe('/privacy'))
-    expect(await AsyncStorage.getItem('pawpin.onboardingPath')).toBe('owner')
+    expect(await AsyncStorage.getItem('meoofy.onboardingPath')).toBe('owner')
   })
 
   it('keeps nothing until Continue is pressed', async () => {
@@ -214,7 +214,7 @@ describe('O01 choose your path', () => {
 
     await fireEvent.press(screen.getByRole('radio', { name: /Help a found pet/ }))
 
-    expect(await AsyncStorage.getItem('pawpin.onboardingPath')).toBeNull()
+    expect(await AsyncStorage.getItem('meoofy.onboardingPath')).toBeNull()
   })
 
   it('goes back to the welcome step', async () => {
@@ -242,7 +242,7 @@ describe('O02 private by default', () => {
     const promises = screen.getAllByTestId('promise')
     expect(promises).toHaveLength(3)
     expect(promises[0]).toHaveTextContent('Owners choose what finders see.')
-    expect(promises[1]).toHaveTextContent('Contact stays inside PawPin.')
+    expect(promises[1]).toHaveTextContent('Contact stays inside Meoofy.')
     expect(promises[2]).toHaveTextContent('No account needed to scan.')
     expect(screen.getByRole('progressbar', { name: 'Step 3 of 3' })).toBeOnTheScreen()
   })
@@ -253,13 +253,13 @@ describe('O02 private by default', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Sounds good' }))
 
     await waitFor(() => expect(router.getPathname()).toBe('/sign-in'))
-    expect(await AsyncStorage.getItem('pawpin.onboardingSeen')).toBe('true')
+    expect(await AsyncStorage.getItem('meoofy.onboardingSeen')).toBe('true')
   })
 
   it('does not mark onboarding as seen before the last step is done', async () => {
     await open('/privacy')
 
-    expect(await AsyncStorage.getItem('pawpin.onboardingSeen')).toBeNull()
+    expect(await AsyncStorage.getItem('meoofy.onboardingSeen')).toBeNull()
   })
 
   it('goes back to the choice of path', async () => {
@@ -324,23 +324,23 @@ describe('O03 all set', () => {
     await waitFor(() => expect(router.getPathname()).toBe('/pets/new'))
   })
 
-  it('"Explore PawPin" opens Home', async () => {
+  it('"Explore Meoofy" opens Home', async () => {
     const { router } = await open('/all-set', 'u1')
     await screen.findByText('You’re all set, Alex.')
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Explore PawPin' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Explore Meoofy' }))
 
     await waitFor(() => expect(router.getPathname()).toBe('/home'))
   })
 
-  it('"Explore PawPin" opens Find on the finder path', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingPath', 'finder')
+  it('"Explore Meoofy" opens Find on the finder path', async () => {
+    await AsyncStorage.setItem('meoofy.onboardingPath', 'finder')
     const { router } = await open('/all-set', 'u1')
     await screen.findByText('You’re all set, Alex.')
     // The path is recorded and cleared on arrival; Explore still remembers it.
     await waitFor(() => expect(mockCompleteOnboarding).toHaveBeenCalled())
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Explore PawPin' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Explore Meoofy' }))
 
     await waitFor(() => expect(router.getPathname()).toBe('/find'))
   })
@@ -363,17 +363,17 @@ describe('O03 all set', () => {
 
 describe('recording the onboarding path after the first sign-in', () => {
   it('sends the stored path once and removes the key', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingPath', 'owner')
+    await AsyncStorage.setItem('meoofy.onboardingPath', 'owner')
     const { fake } = await open('/all-set', 'u1')
 
     await waitFor(() => expect(mockCompleteOnboarding).toHaveBeenCalledTimes(1))
     expect(mockCompleteOnboarding).toHaveBeenCalledWith(fake.client, 'owner')
     await flush()
-    expect(await AsyncStorage.getItem('pawpin.onboardingPath')).toBeNull()
+    expect(await AsyncStorage.getItem('meoofy.onboardingPath')).toBeNull()
   })
 
   it('sends the path once when O03 hands over to the tabs before the call has finished', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingPath', 'finder')
+    await AsyncStorage.setItem('meoofy.onboardingPath', 'finder')
     let finish: () => void = () => undefined
     mockCompleteOnboarding.mockReturnValue(
       new Promise<void>((resolve) => {
@@ -385,7 +385,7 @@ describe('recording the onboarding path after the first sign-in', () => {
     await waitFor(() => expect(mockCompleteOnboarding).toHaveBeenCalledTimes(1))
 
     // Still sending: Explore remembers the finder path and the tabs open.
-    await fireEvent.press(screen.getByRole('button', { name: 'Explore PawPin' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Explore Meoofy' }))
     await waitFor(() => expect(router.getPathname()).toBe('/find'))
     await screen.findByText('Scanning arrives in the next pilot build')
     await flush()
@@ -394,7 +394,7 @@ describe('recording the onboarding path after the first sign-in', () => {
     finish()
     await flush()
     expect(mockCompleteOnboarding).toHaveBeenCalledTimes(1)
-    expect(await AsyncStorage.getItem('pawpin.onboardingPath')).toBeNull()
+    expect(await AsyncStorage.getItem('meoofy.onboardingPath')).toBeNull()
   })
 
   it('does nothing when no path was chosen on this device', async () => {
@@ -405,7 +405,7 @@ describe('recording the onboarding path after the first sign-in', () => {
   })
 
   it('ignores a stored value that is not a path', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingPath', 'wizard')
+    await AsyncStorage.setItem('meoofy.onboardingPath', 'wizard')
     await open('/all-set', 'u1')
     await screen.findByText('You’re all set, Alex.')
 
@@ -413,32 +413,32 @@ describe('recording the onboarding path after the first sign-in', () => {
   })
 
   it('keeps the key when the call fails, so the next open tries again', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingPath', 'finder')
+    await AsyncStorage.setItem('meoofy.onboardingPath', 'finder')
     mockCompleteOnboarding.mockRejectedValue(new AppError('NETWORK'))
     await open('/all-set', 'u1')
 
     await waitFor(() => expect(mockCompleteOnboarding).toHaveBeenCalledTimes(1))
     await screen.findByText('You’re all set, Alex.')
-    expect(await AsyncStorage.getItem('pawpin.onboardingPath')).toBe('finder')
+    expect(await AsyncStorage.getItem('meoofy.onboardingPath')).toBe('finder')
   })
 
   it('also runs for a signed-in person who lands in the tabs without seeing O03', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingPath', 'finder')
+    await AsyncStorage.setItem('meoofy.onboardingPath', 'finder')
     const { fake } = await render('/find', 'u1', true)
     await screen.findByText('Scanning arrives in the next pilot build')
 
     await waitFor(() => expect(mockCompleteOnboarding).toHaveBeenCalledWith(fake.client, 'finder'))
     await flush()
-    expect(await AsyncStorage.getItem('pawpin.onboardingPath')).toBeNull()
+    expect(await AsyncStorage.getItem('meoofy.onboardingPath')).toBeNull()
   })
 
   it('never runs for a signed-out visitor', async () => {
-    await AsyncStorage.setItem('pawpin.onboardingPath', 'owner')
+    await AsyncStorage.setItem('meoofy.onboardingPath', 'owner')
     await render('/find', null, true)
     await screen.findByText('Sign-in screen')
 
     expect(mockCompleteOnboarding).not.toHaveBeenCalled()
-    expect(await AsyncStorage.getItem('pawpin.onboardingPath')).toBe('owner')
+    expect(await AsyncStorage.getItem('meoofy.onboardingPath')).toBe('owner')
   })
 })
 
@@ -446,7 +446,7 @@ describe('hero scenes', () => {
   // The four compositions from board 08. Sparkles are extra decoration.
   const scenes = [
     { url: '/welcome', hero: 'hero-night-garden', stickers: ['dog', 'cat', 'sleepy-moon'] },
-    { url: '/choose-path', hero: 'hero-two-paths', stickers: ['dog', 'paw-pin', 'heart-paw'] },
+    { url: '/choose-path', hero: 'hero-two-paths', stickers: ['dog', 'meoofy', 'heart-paw'] },
     {
       url: '/privacy',
       hero: 'hero-safe-orbit',

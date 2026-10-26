@@ -1,5 +1,5 @@
-import type { Entitlement } from '@pawpin/api'
-import type { Tier } from '@pawpin/core'
+import type { Entitlement } from '@meoofy/api'
+import type { Tier } from '@meoofy/core'
 
 import { plansCopy } from '../plans/copy'
 

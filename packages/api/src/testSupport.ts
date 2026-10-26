@@ -1,12 +1,12 @@
 // Unit-test helpers: a client whose every request goes to a stub `fetch`, so the real supabase-js
 // libraries produce their real error shapes without a network.
 import { createClient } from '@supabase/supabase-js'
-import type { PawpinClient } from './client'
+import type { MeoofyClient } from './client'
 import type { Database } from './database.types'
 
 export type Fetch = typeof globalThis.fetch
 
-export function stubClient(fetch: Fetch): PawpinClient {
+export function stubClient(fetch: Fetch): MeoofyClient {
   return createClient<Database>('http://stub.test', 'stub-anon-key', {
     db: { schema: 'api', retry: false },
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

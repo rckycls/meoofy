@@ -11,7 +11,7 @@ export const STICKER_NAMES = [
   'paw-star',
   'sparkle',
   'heart-paw',
-  'paw-pin',
+  'meoofy',
   'privacy-shield',
   'love-letter',
   'pet-tag',

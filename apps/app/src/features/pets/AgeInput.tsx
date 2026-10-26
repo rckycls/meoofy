@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { LIMITS, toAgeMonths } from '@pawpin/core'
-import { Field, colors, space, textStyle, type } from '@pawpin/ui'
+import { LIMITS, toAgeMonths } from '@meoofy/core'
+import { Field, colors, space, textStyle, type } from '@meoofy/ui'
 
 import { petsCopy } from './copy'
 

@@ -44,7 +44,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Chromium for the web end-to-end tests
-        run: pnpm --filter @pawpin/app exec playwright install --with-deps chromium
+        run: pnpm --filter @meoofy/app exec playwright install --with-deps chromium
 
       # After checkout: the stack needs supabase/ (migrations, config, templates). The first start
       # on a database that has no `api` schema yet can fail PostgREST's health check; the second

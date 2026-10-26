@@ -1,5 +1,5 @@
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { Button, Card, cardRoles, colors, space, textStyle, type } from '@pawpin/ui'
+import { Button, Card, cardRoles, colors, space, textStyle, type } from '@meoofy/ui'
 
 export type ConfirmDialogProps = {
   visible: boolean

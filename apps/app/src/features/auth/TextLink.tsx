@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native'
 import { Link } from 'expo-router'
-import { colors, textStyle, type } from '@pawpin/ui'
+import { colors, textStyle, type } from '@meoofy/ui'
 
 /** An address outside the app, such as `mailto:help@example.com`. */
 type ExternalHref = `${string}:${string}`

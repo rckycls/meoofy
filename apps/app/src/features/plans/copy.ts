@@ -1,4 +1,4 @@
-import type { Tier } from '@pawpin/core'
+import type { Tier } from '@meoofy/core'
 
 /** The plans in order, cheapest first. */
 export const TIERS: readonly Tier[] = ['free', 'pro', 'max']

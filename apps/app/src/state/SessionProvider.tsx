@@ -2,19 +2,19 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { AppState, Platform } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import {
-  createPawpinClient,
+  createMeoofyClient,
   onSessionForgotten,
   readStoredSession,
-  type PawpinClient,
+  type MeoofyClient,
   type SessionStorage,
   type StoredSession,
-} from '@pawpin/api'
+} from '@meoofy/api'
 
 import { env } from '../env'
 import { followConnection, useOnline } from '../offline/useOnline'
 
 export type Session = {
-  client: PawpinClient
+  client: MeoofyClient
   signedIn: boolean
   userId: string | null
   /** The signed-in person's email, or `null` when signed out or the session carries none. */
@@ -45,8 +45,8 @@ export function sessionStorageFor(os: typeof Platform.OS): SessionStorage | unde
   }
 }
 
-function createClient(): PawpinClient {
-  return createPawpinClient({
+function createClient(): MeoofyClient {
+  return createMeoofyClient({
     url: env.supabaseUrl,
     anonKey: env.supabaseAnonKey,
     storage: sessionStorageFor(Platform.OS),
@@ -81,7 +81,7 @@ const storedOnly = (stored: StoredSession): User => ({
  *   person hands supabase-js the session (their cache stays), another person
  *   replaces them, and SIGNED_OUT (a refused session included) signs them out;
  * - signing out while supabase-js can't load the session is done by
- *   `@pawpin/api` (`onSessionForgotten`), with no auth event.
+ *   `@meoofy/api` (`onSessionForgotten`), with no auth event.
  * Online, the app waits for supabase-js, which answers quickly there.
  *
  * `client` is for tests; the app lets the provider create its own.
@@ -91,7 +91,7 @@ export function SessionProvider({
   client: injected,
 }: {
   children: ReactNode
-  client?: PawpinClient
+  client?: MeoofyClient
 }) {
   const [client] = useState(() => injected ?? createClient())
   const [auth, setAuth] = useState<AuthState>({ ready: false })
@@ -123,7 +123,7 @@ export function SessionProvider({
         setAuth({ ready: true, user: null })
       }
     })
-    // `@pawpin/api` forgot the session itself (signing out while supabase-js couldn't load it):
+    // `@meoofy/api` forgot the session itself (signing out while supabase-js couldn't load it):
     // supabase-js reports nothing, so this is the sign-out.
     const stopForgotten = onSessionForgotten(client, () => {
       ++latest

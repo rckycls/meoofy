@@ -6,7 +6,7 @@ import {
   PersistQueryClientProvider,
   type PersistedClient,
 } from '@tanstack/react-query-persist-client'
-import { parseAppError } from '@pawpin/core'
+import { parseAppError } from '@meoofy/core'
 
 import { reportHandledError } from '../observability/sentry'
 import { clearDraft } from '../offline/draft'
@@ -40,7 +40,7 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 const RECOVERY_WINDOW_MS = 30_000
 
 /** Where the persister keeps the cache on the device. */
-export const QUERY_CACHE_KEY = 'pawpin.queryCache'
+export const QUERY_CACHE_KEY = 'meoofy.queryCache'
 
 /**
  * What is saved of a query is its data. A refresh that failed (a connection that dropped without

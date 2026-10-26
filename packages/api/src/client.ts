@@ -1,8 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database.types'
 
-/** The app's Supabase client. Only `@pawpin/api` touches it; screens call this package instead. */
-export type PawpinClient = SupabaseClient<Database>
+/** The app's Supabase client. Only `@meoofy/api` touches it; screens call this package instead. */
+export type MeoofyClient = SupabaseClient<Database>
 
 /** Where the session is kept: expo-secure-store on iOS; omitted on web (Supabase's default). */
 export type SessionStorage = {
@@ -11,7 +11,7 @@ export type SessionStorage = {
   removeItem(key: string): Promise<void>
 }
 
-export type PawpinClientOptions = {
+export type MeoofyClientOptions = {
   url: string
   anonKey: string
   storage?: SessionStorage
@@ -33,11 +33,11 @@ type SessionStore = {
 }
 
 /** Where each client made here keeps its session, so this package can read or forget it. */
-const sessionStores = new WeakMap<PawpinClient, { storage: SessionStore; key: string }>()
+const sessionStores = new WeakMap<MeoofyClient, { storage: SessionStore; key: string }>()
 
-/** Where a client made by `createPawpinClient` keeps its session; `undefined` for any other. */
+/** Where a client made by `createMeoofyClient` keeps its session; `undefined` for any other. */
 export function sessionStoreOf(
-  c: PawpinClient,
+  c: MeoofyClient,
 ): { storage: SessionStore; key: string } | undefined {
   return sessionStores.get(c)
 }
@@ -61,7 +61,7 @@ function browserStorage(): SessionStore | undefined {
   }
 }
 
-export function createPawpinClient(opts: PawpinClientOptions): PawpinClient {
+export function createMeoofyClient(opts: MeoofyClientOptions): MeoofyClient {
   // Supabase's own default key, given explicitly so the session can be read back from it (and a
   // session stored before this was set keeps working).
   const storageKey = `sb-${new URL(opts.url).hostname.split('.')[0]}-auth-token`

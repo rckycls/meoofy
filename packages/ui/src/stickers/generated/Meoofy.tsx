@@ -1,7 +1,7 @@
 import * as React from 'react'
 import Svg, { Path } from 'react-native-svg'
 import type { SvgProps } from 'react-native-svg'
-const SvgPawPin = (props: SvgProps) => (
+const SvgMeoofy = (props: SvgProps) => (
   <Svg viewBox="0 0 120 120" {...props}>
     <Path
       fill="#53749A"
@@ -30,4 +30,4 @@ const SvgPawPin = (props: SvgProps) => (
     />
   </Svg>
 )
-export default SvgPawPin
+export default SvgMeoofy
